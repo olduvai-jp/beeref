@@ -1,5 +1,6 @@
 import os.path
 import pytest
+import time
 import uuid
 
 from unittest.mock import MagicMock, patch
@@ -99,6 +100,10 @@ def item():
 
 @pytest.fixture(scope="session")
 def qapp():
+    import os
+    # テスト実行時はheadlessモードを強制
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+    
     from beeref.__main__ import BeeRefApplication
     yield BeeRefApplication([])
 
@@ -140,3 +145,21 @@ def mock_dialogs():
             'open_files': open_files_mock,
             'get_dir': get_dir_mock,
         }
+
+
+@pytest.fixture(autouse=True)
+def test_delay():
+    """テスト間に短いsleepを追加してタイミング問題を回避"""
+    yield
+    # テスト後に短いsleepを入れる
+    time.sleep(0.01)
+
+
+def pytest_runtest_teardown(item, nextitem):
+    """各テスト終了後に追加のsleepを入れる（Qtのイベントループのクリーンアップ用）"""
+    if nextitem:  # 次のテストがある場合
+        time.sleep(0.05)
+        # QtのイベントループをクリアするためにprocessEventsを呼ぶ
+        app = QtWidgets.QApplication.instance()
+        if app:
+            app.processEvents()
