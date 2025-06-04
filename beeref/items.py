@@ -804,3 +804,217 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     def copy_to_clipboard(self, clipboard):
         clipboard.setText(self.toPlainText())
+
+
+@register_item
+class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
+    """アニメーション画像表示用アイテム（QMovieを使わない方式）"""
+    
+    TYPE = 'animated_pixmap'
+    CROP_HANDLE_SIZE = 15
+    
+    def __init__(self, animation_data, filename=None, **kwargs):
+        super().__init__()
+        self.save_id = None
+        self.filename = filename
+        self.is_image = True
+        self.crop_mode = False
+        self.settings = BeeSettings()
+        
+        # アニメーションデータを最初に設定
+        self.frames = [QtGui.QPixmap.fromImage(frame)
+                      for frame in animation_data['frames']]
+        self.delays = animation_data['delays']
+        self.current_frame = 0
+        self.paint_counter = 0  # paint()呼び出し回数カウンター
+        self.frame_timer = 0  # フレーム切り替え用のタイマー
+        
+        # アニメーション制御用フラグ
+        self._animation_started = False
+        
+        # 初期設定（framesが設定された後に）
+        self.reset_crop()
+        self._grayscale = False  # プロパティのsetterを呼ばずに直接設定
+        self.init_selectable()
+        
+        logger.debug(f'Initialized {self} with {len(self.frames)} frames')
+    
+    @classmethod
+    def create_from_data(cls, **kwargs):
+        item = kwargs.pop('item')
+        data = kwargs.pop('data', {})
+        item.filename = item.filename or data.get('filename')
+        if 'crop' in data:
+            item.crop = QtCore.QRectF(*data['crop'])
+        item.setOpacity(data.get('opacity', 1))
+        item.grayscale = data.get('grayscale', False)
+        item.current_frame = data.get('current_frame', 0)
+        return item
+    
+    def __str__(self):
+        size = self.pixmap().size()
+        frame_info = f' ({len(self.frames)} frames)' if len(self.frames) > 1 else ''
+        return (f'Animated Image "{self.filename}" {size.width()} x {size.height()}{frame_info}')
+    
+    def start_animation(self):
+        """アニメーション開始"""
+        logger.info(f'start_animation called for {self}, frames: {len(self.frames)}, scene: {self.scene()}, started: {self._animation_started}')
+        if len(self.frames) > 1 and self.scene() and not self._animation_started:
+            self._animation_started = True
+            # QTimer.singleShotを使ってメインスレッドで確実にタイマーを動作させる
+            QtCore.QTimer.singleShot(self.delays[self.current_frame], self.next_frame)
+            logger.info(f'Started animation for {self} with delay {self.delays[self.current_frame]}ms using singleShot')
+    
+    def stop_animation(self):
+        """アニメーション停止"""
+        self._animation_started = False
+        logger.info(f'Stopped animation for {self}')
+    
+    def next_frame(self):
+        """次のフレームに進む"""
+        logger.info(f'next_frame called for {self}, current: {self.current_frame}')
+        if len(self.frames) <= 1:
+            return
+            
+        old_frame = self.current_frame
+        self.current_frame = (self.current_frame + 1) % len(self.frames)
+        self.update()  # 再描画をトリガー
+        logger.info(f'Frame changed from {old_frame} to {self.current_frame}')
+        
+        # 次のフレームのタイマーを設定
+        if self.scene() and self._animation_started:
+            QtCore.QTimer.singleShot(self.delays[self.current_frame], self.next_frame)
+            logger.info(f'Next timer started with delay {self.delays[self.current_frame]}ms using singleShot')
+    
+    def update_animation(self, elapsed_ms):
+        """シーンのタイマーから呼ばれるアニメーション更新"""
+        if len(self.frames) <= 1:
+            return False
+            
+        self.frame_timer += elapsed_ms
+        current_delay = self.delays[self.current_frame]
+        
+        if self.frame_timer >= current_delay:
+            self.frame_timer = 0
+            old_frame = self.current_frame
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+            logger.info(f'Frame changed from {old_frame} to {self.current_frame} for {self}')
+            return True
+        
+        return False
+    
+    def pixmap(self):
+        """現在のフレームのPixmapを返す"""
+        if self.frames:
+            return self.frames[self.current_frame]
+        return QtGui.QPixmap()
+    
+    def boundingRect(self):
+        """バウンディングボックス"""
+        if self.crop_mode:
+            return QtCore.QRectF(self.pixmap().rect())
+        else:
+            return self.crop
+    
+    def bounding_rect_unselected(self):
+        if self.crop_mode:
+            return QtCore.QRectF(self.pixmap().rect())
+        else:
+            return self.crop
+    
+    @property
+    def crop(self):
+        return self._crop
+
+    @crop.setter
+    def crop(self, value):
+        logger.debug(f'Setting crop for {self} to {value}')
+        self.prepareGeometryChange()
+        self._crop = value
+        self.update()
+
+    @property
+    def grayscale(self):
+        return self._grayscale
+
+    @grayscale.setter
+    def grayscale(self, value):
+        logger.debug(f'Setting grayscale for {self} to {value}')
+        self._grayscale = value
+        # グレースケール処理は簡略化（必要に応じて後で拡張）
+        self.update()
+    
+    def reset_crop(self):
+        """クロップ領域をリセット"""
+        if self.frames:
+            size = self.pixmap().size()
+            self.crop = QtCore.QRectF(0, 0, size.width(), size.height())
+    
+    def paint(self, painter, option, widget):
+        """描画メソッド"""
+        if abs(painter.combinedTransform().m11()) < 2:
+            painter.setRenderHint(painter.RenderHint.SmoothPixmapTransform)
+        
+        pm = self.pixmap()
+        if pm.isNull():
+            return
+            
+        if self.crop_mode:
+            # クロップモードでは全体を表示
+            painter.drawPixmap(0, 0, pm)
+            # TODO: クロップモードの完全実装
+        else:
+            # 通常モードではクロップ領域のみ表示
+            painter.drawPixmap(self.crop, pm, self.crop)
+            self.paint_selectable(painter, option, widget)
+    
+    def itemChange(self, change, value):
+        """アイテム状態変更時の処理"""
+        logger.info(f'ItemChange for {self}: {change}, value: {value}')
+        if change == self.GraphicsItemChange.ItemSceneHasChanged:
+            if value:  # シーンに追加された
+                logger.info(f'Item added to scene, starting animation for {self}')
+                self.start_animation()
+            else:  # シーンから削除された
+                logger.info(f'Item removed from scene, stopping animation for {self}')
+                self.stop_animation()
+        
+        return super().itemChange(change, value)
+    
+    def get_extra_save_data(self):
+        """保存用の追加データ"""
+        return {
+            'filename': self.filename,
+            'opacity': self.opacity(),
+            'grayscale': self.grayscale,
+            'current_frame': self.current_frame,
+            'crop': [self.crop.topLeft().x(),
+                     self.crop.topLeft().y(),
+                     self.crop.width(),
+                     self.crop.height()]
+        }
+    
+    def create_copy(self):
+        """アイテムのコピーを作成"""
+        # 同じアニメーションデータを使用して新しいアイテムを作成
+        animation_data = {
+            'type': 'animated',
+            'frames': [pm.toImage() for pm in self.frames],
+            'delays': self.delays
+        }
+        item = BeeAnimatedPixmapItem(animation_data, self.filename)
+        item.setPos(self.pos())
+        item.setZValue(self.zValue())
+        item.setScale(self.scale())
+        item.setRotation(self.rotation())
+        item.setOpacity(self.opacity())
+        item.grayscale = self.grayscale
+        if self.flip() == -1:
+            item.do_flip()
+        item.crop = self.crop
+        item.current_frame = self.current_frame
+        return item
+    
+    def copy_to_clipboard(self, clipboard):
+        """現在のフレームをクリップボードにコピー"""
+        clipboard.setPixmap(self.pixmap())

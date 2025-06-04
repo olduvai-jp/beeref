@@ -21,7 +21,7 @@ from beeref import commands
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.sql import SQLiteIO, is_bee_file
-from beeref.items import BeePixmapItem
+from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem
 
 
 __all__ = [
@@ -60,17 +60,33 @@ def load_images(filenames, pos, scene, worker):
     worker.begin_processing.emit(len(filenames))
     for i, filename in enumerate(filenames):
         logger.info(f'Loading image from file {filename}')
-        img, filename = load_image(filename)
+        data, filename = load_image(filename)
         worker.progress.emit(i)
-        if img.isNull():
-            logger.info(f'Could not load file {filename}')
-            errors.append(filename)
-            continue
+        
+        # アニメーションデータの場合
+        if isinstance(data, dict) and data.get('type') == 'animated':
+            if not data.get('frames'):
+                logger.info(f'No frames found in animated file {filename}')
+                errors.append(filename)
+                continue
+            
+            logger.info(f'Creating animated item for {filename} with {len(data["frames"])} frames')
+            item = BeeAnimatedPixmapItem(data, filename)
+            item.set_pos_center(pos)
+            scene.add_item_later({'item': item, 'type': 'animated_pixmap'}, selected=True)
+            items.append(item)
+        else:
+            # 静止画の場合
+            if data.isNull():
+                logger.info(f'Could not load file {filename}')
+                errors.append(filename)
+                continue
 
-        item = BeePixmapItem(img, filename)
-        item.set_pos_center(pos)
-        scene.add_item_later({'item': item, 'type': 'pixmap'}, selected=True)
-        items.append(item)
+            item = BeePixmapItem(data, filename)
+            item.set_pos_center(pos)
+            scene.add_item_later({'item': item, 'type': 'pixmap'}, selected=True)
+            items.append(item)
+            
         if worker.canceled:
             break
         # Give main thread time to process items:

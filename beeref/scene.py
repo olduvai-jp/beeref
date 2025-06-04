@@ -52,6 +52,12 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         self.edit_item = None
         self.crop_item = None
         self.settings = BeeSettings()
+        
+        # アニメーション管理用タイマー
+        self.animation_timer = QtCore.QTimer()
+        self.animation_timer.timeout.connect(self.update_animations)
+        self.animation_timer.setInterval(50)  # 50ms間隔で更新（20 FPS）
+        
         self.clear()
         self._clear_ongoing = False
 
@@ -66,10 +72,44 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
     def addItem(self, item):
         logger.debug(f'Adding item {item}')
         super().addItem(item)
+        
+        # アニメーションアイテムが追加された場合、タイマーを開始
+        if hasattr(item, 'TYPE') and item.TYPE == 'animated_pixmap':
+            if not self.animation_timer.isActive():
+                self.animation_timer.start()
+                logger.info('Started animation timer for scene')
 
     def removeItem(self, item):
         logger.debug(f'Removing item {item}')
         super().removeItem(item)
+        
+        # アニメーションアイテムがなくなったらタイマーを停止
+        if hasattr(item, 'TYPE') and item.TYPE == 'animated_pixmap':
+            has_animated_items = any(
+                hasattr(i, 'TYPE') and i.TYPE == 'animated_pixmap'
+                for i in self.items()
+            )
+            if not has_animated_items and self.animation_timer.isActive():
+                self.animation_timer.stop()
+                logger.info('Stopped animation timer for scene')
+    
+    def update_animations(self):
+        """アニメーションアイテムの更新"""
+        animated_items = [
+            item for item in self.items()
+            if hasattr(item, 'TYPE') and item.TYPE == 'animated_pixmap'
+        ]
+        
+        if not animated_items:
+            self.animation_timer.stop()
+            return
+            
+        # すべてのアニメーションアイテムを更新
+        for item in animated_items:
+            if hasattr(item, 'update_animation'):
+                if item.update_animation(50):  # 50ms経過として更新
+                    # フレームが変更された場合、そのアイテムの領域を更新
+                    item.update()
 
     def cancel_active_modes(self):
         """Cancels ongoing crop modes, rubberband modes etc, if there are

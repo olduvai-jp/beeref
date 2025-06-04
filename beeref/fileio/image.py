@@ -19,7 +19,7 @@ import tempfile
 from urllib.error import URLError
 from urllib import parse, request
 
-from PyQt6 import QtGui
+from PyQt6 import QtGui, QtCore
 
 import exif
 from lxml import etree
@@ -81,12 +81,66 @@ def exif_rotated_image(path=None):
     return img
 
 
+def is_animated_image(path):
+    """アニメーション画像かどうか判定する"""
+    if not os.path.isfile(path):
+        return False
+    
+    try:
+        reader = QtGui.QImageReader(path)
+        return reader.supportsAnimation() and reader.imageCount() > 1
+    except Exception as e:
+        logger.debug(f'Failed to check animation for {path}: {e}')
+        return False
+
+
+def load_animated_frames(path):
+    """アニメーションGIFの全フレームを読み込む"""
+    try:
+        reader = QtGui.QImageReader(path)
+        frames = []
+        delays = []
+        
+        for i in range(reader.imageCount()):
+            reader.jumpToImage(i)
+            frame = reader.read()
+            if frame.isNull():
+                logger.warning(f'Failed to read frame {i} from {path}')
+                continue
+                
+            delay = reader.nextImageDelay()  # ミリ秒
+            
+            frames.append(frame)
+            delays.append(max(delay, 50))  # 最小50ms
+        
+        logger.debug(f'Loaded {len(frames)} frames from {path}')
+        return {
+            'type': 'animated',
+            'frames': frames,
+            'delays': delays,
+            'path': path
+        }
+    except Exception as e:
+        logger.error(f'Failed to load animated frames from {path}: {e}')
+        return None
+
+
 def load_image(path):
     if isinstance(path, str):
         path = os.path.normpath(path)
+        if is_animated_image(path):
+            animated_data = load_animated_frames(path)
+            if animated_data:
+                return (animated_data, path)
+            # アニメーション読み込みに失敗した場合は静止画として処理
+            logger.warning(f'Failed to load as animation, fallback to static image: {path}')
         return (exif_rotated_image(path), path)
     if path.isLocalFile():
         path = os.path.normpath(path.toLocalFile())
+        if is_animated_image(path):
+            animated_data = load_animated_frames(path)
+            if animated_data:
+                return (animated_data, path)
         return (exif_rotated_image(path), path)
 
     url = bytes(path.toEncoded()).decode()
