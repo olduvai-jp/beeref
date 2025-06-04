@@ -55,12 +55,17 @@ class MainControlsMixin:
             return self.viewport()
         return self
 
-    def enter_movewin_mode(self):
+    def enter_movewin_mode(self, event=None):
         logger.debug('Entering movewin mode')
         self.setMouseTracking(True)
         self.movewin_active = True
         self.viewport_or_self.setCursor(Qt.CursorShape.SizeAllCursor)
-        self.event_start = QtCore.QPointF(self.cursor().pos())
+        if event is not None:
+            self.event_start = event.position()
+        else:
+            # Fallback for backward compatibility - convert to local coordinates
+            global_pos = QtCore.QPointF(self.cursor().pos())
+            self.event_start = self.mapFromGlobal(global_pos)
         if hasattr(self, 'disable_mouse_events'):
             self.disable_mouse_events()
 
@@ -120,13 +125,13 @@ class MainControlsMixin:
         action, inverted =\
             self.control_target.keyboard_settings.mouse_action_for_event(event)
         if action == 'movewindow':
-            self.enter_movewin_mode()
+            self.enter_movewin_mode(event)
             event.accept()
             return True
 
     def mouseMoveEventMainControls(self, event):
         if self.movewin_active:
-            pos = self.mapToGlobal(event.position())
+            pos = event.position()
             delta = pos - self.event_start
             self.event_start = pos
             self.main_window.move(self.main_window.x() + int(delta.x()),

@@ -957,7 +957,9 @@ def test_on_action_move_window_when_welcome_overlay(cursor_mock, view):
         pos=MagicMock(return_value=QtCore.QPointF(10.0, 20.0)))
     view.on_action_move_window()
     assert view.welcome_overlay.movewin_active is True
-    assert view.welcome_overlay.event_start == QtCore.QPointF(10.0, 20.0)
+    # After mapFromGlobal conversion, the coordinates are adjusted
+    expected_pos = view.welcome_overlay.mapFromGlobal(QtCore.QPointF(10.0, 20.0))
+    assert view.welcome_overlay.event_start == expected_pos
 
 
 def test_on_action_move_window_when_already_active(view):
@@ -975,7 +977,9 @@ def test_on_action_move_window_when_scene(cursor_mock, view):
     view.welcome_overlay.hide()
     view.on_action_move_window()
     assert view.movewin_active is True
-    assert view.event_start == QtCore.QPointF(10.0, 20.0)
+    # After mapFromGlobal conversion, the coordinates are adjusted
+    expected_pos = view.mapFromGlobal(QtCore.QPointF(10.0, 20.0))
+    assert view.event_start == expected_pos
 
 
 def test_on_action_select_all(view, item):
@@ -1409,15 +1413,14 @@ def test_mouse_press_sample_color_when_no_color(
 @patch('beeref.view.BeeGraphicsView.cursor')
 def test_mouse_press_move_window(cursor_mock, mouse_event_mock, view):
     event = MagicMock()
-    cursor_mock.return_value = MagicMock(
-        pos=MagicMock(return_value=QtCore.QPointF(10.0, 20.0)))
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.button.return_value = Qt.MouseButton.LeftButton
     event.modifiers.return_value = (
         Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.ControlModifier)
     view.mousePressEvent(event)
     assert view.active_mode is None
     assert view.movewin_active is True
-    assert view.event_start == view.mapToGlobal(QtCore.QPointF(10.0, 20.0))
+    assert view.event_start == QtCore.QPointF(10.0, 20.0)
     mouse_event_mock.assert_not_called()
     event.accept.assert_called_once_with()
 
