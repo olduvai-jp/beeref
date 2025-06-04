@@ -8,7 +8,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
 from beeref import commands
-from beeref.items import BeePixmapItem, BeeTextItem
+from beeref.items import BeePixmapItem, BeeTextItem, BeeAnimatedPixmapItem
 
 
 def test_add_remove_item(view, item):
@@ -1409,3 +1409,167 @@ def test_add_queued_items_ignores_unknown_type(view):
     assert len(view.scene.items()) == 1
     item = view.scene.items()[0]
     assert item.toPlainText() == 'Item of unknown type: foo'
+
+class TestAnimationTimer:
+    """アニメーションタイマー関連のテスト"""
+    
+    @pytest.fixture
+    def animation_data(self):
+        """アニメーションデータのフィクスチャ"""
+        frames = []
+        for i in range(2):
+            img = QtGui.QImage(3, 3, QtGui.QImage.Format.Format_ARGB32)
+            img.fill(QtGui.QColor(255 * i, 128, 255 - 255 * i))
+            frames.append(img)
+        
+        return {
+            'frames': frames,
+            'delays': [100, 200]
+        }
+    
+    @pytest.fixture
+    def animated_item(self, animation_data):
+        """BeeAnimatedPixmapItemのフィクスチャ"""
+        return BeeAnimatedPixmapItem(animation_data, filename='test.gif')
+    
+    def test_add_animated_item_starts_timer(self, view, animated_item):
+        """アニメーションアイテム追加時にタイマーが開始されることを確認"""
+        # 初期状態ではタイマーは停止
+        assert not view.scene.animation_timer.isActive()
+        
+        # アニメーションアイテムを追加
+        view.scene.addItem(animated_item)
+        
+        # タイマーが開始されることを確認
+        assert view.scene.animation_timer.isActive()
+    
+    def test_add_non_animated_item_does_not_start_timer(self, view):
+        """非アニメーションアイテム追加時にタイマーが開始されないことを確認"""
+        # 初期状態ではタイマーは停止
+        assert not view.scene.animation_timer.isActive()
+        
+        # 通常のアイテムを追加
+        item = BeePixmapItem(QtGui.QImage())
+        view.scene.addItem(item)
+        
+        # タイマーは開始されない
+        assert not view.scene.animation_timer.isActive()
+    
+    def test_remove_last_animated_item_stops_timer(self, view, animated_item):
+        """最後のアニメーションアイテム削除時にタイマーが停止されることを確認"""
+        # アニメーションアイテムを追加してタイマーを開始
+        view.scene.addItem(animated_item)
+        assert view.scene.animation_timer.isActive()
+        
+        # アニメーションアイテムを削除
+        view.scene.removeItem(animated_item)
+        
+        # タイマーが停止されることを確認
+        assert not view.scene.animation_timer.isActive()
+    
+    def test_remove_animated_item_with_others_keeps_timer(self, view, animated_item, animation_data):
+        """他のアニメーションアイテムがある場合、タイマーが継続することを確認"""
+        # 2つのアニメーションアイテムを追加
+        animated_item2 = BeeAnimatedPixmapItem(animation_data, filename='test2.gif')
+        view.scene.addItem(animated_item)
+        view.scene.addItem(animated_item2)
+        assert view.scene.animation_timer.isActive()
+        
+        # 1つを削除
+        view.scene.removeItem(animated_item)
+        
+        # まだ他のアニメーションアイテムがあるのでタイマーは継続
+        assert view.scene.animation_timer.isActive()
+        
+        # 最後のアニメーションアイテムを削除
+        view.scene.removeItem(animated_item2)
+        
+        # タイマーが停止される
+        assert not view.scene.animation_timer.isActive()
+    
+    def test_remove_non_animated_item_does_not_affect_timer(self, view, animated_item):
+        """非アニメーションアイテムの削除がタイマーに影響しないことを確認"""
+        # アニメーションアイテムと通常アイテムを追加
+        regular_item = BeePixmapItem(QtGui.QImage())
+        view.scene.addItem(animated_item)
+        view.scene.addItem(regular_item)
+        assert view.scene.animation_timer.isActive()
+        
+        # 通常アイテムを削除
+        view.scene.removeItem(regular_item)
+        
+        # タイマーは継続
+        assert view.scene.animation_timer.isActive()
+    
+    def test_update_animations_calls_item_methods(self, view, animated_item):
+        """update_animationsがアニメーションアイテムの更新メソッドを呼ぶことを確認"""
+        view.scene.addItem(animated_item)
+        
+        # update_animationメソッドをモック
+        animated_item.update_animation = MagicMock(return_value=True)
+        animated_item.update = MagicMock()
+        
+        # update_animationsを実行
+        view.scene.update_animations()
+        
+        # メソッドが呼ばれることを確認
+        animated_item.update_animation.assert_called_once_with(50)  # 50ms間隔
+        animated_item.update.assert_called_once()
+    
+    def test_update_animations_no_update_when_false_returned(self, view, animated_item):
+        """update_animationがFalseを返した場合にupdateが呼ばれないことを確認"""
+        view.scene.addItem(animated_item)
+        
+        # update_animationがFalseを返すようにモック
+        animated_item.update_animation = MagicMock(return_value=False)
+        animated_item.update = MagicMock()
+        
+        # update_animationsを実行
+        view.scene.update_animations()
+        
+        # update_animationは呼ばれるがupdateは呼ばれない
+        animated_item.update_animation.assert_called_once_with(50)
+        animated_item.update.assert_not_called()
+    
+    def test_update_animations_with_multiple_items(self, view, animated_item, animation_data):
+        """複数のアニメーションアイテムがある場合の更新テスト"""
+        animated_item2 = BeeAnimatedPixmapItem(animation_data, filename='test2.gif')
+        view.scene.addItem(animated_item)
+        view.scene.addItem(animated_item2)
+        
+        # 両方のアイテムのメソッドをモック
+        animated_item.update_animation = MagicMock(return_value=True)
+        animated_item.update = MagicMock()
+        animated_item2.update_animation = MagicMock(return_value=False)
+        animated_item2.update = MagicMock()
+        
+        # update_animationsを実行
+        view.scene.update_animations()
+        
+        # 両方のupdate_animationが呼ばれることを確認
+        animated_item.update_animation.assert_called_once_with(50)
+        animated_item2.update_animation.assert_called_once_with(50)
+        
+        # Trueを返したアイテムのみupdateが呼ばれる
+        animated_item.update.assert_called_once()
+        animated_item2.update.assert_not_called()
+    
+    def test_animation_timer_interval(self, view):
+        """アニメーションタイマーの間隔が正しく設定されていることを確認"""
+        assert view.scene.animation_timer.interval() == 50
+    
+    def test_clear_scene_stops_animation_timer(self, view, animated_item):
+        """シーンのクリア時にアニメーションタイマーが停止することを確認"""
+        # アニメーションアイテムを追加してタイマーを開始
+        view.scene.addItem(animated_item)
+        assert view.scene.animation_timer.isActive()
+        
+        # シーンをクリア
+        view.scene.clear()
+        
+        # clear()後にタイマーの状態を確認
+        # update_animations()が呼ばれるとアニメーションアイテムがないため自動的に停止される
+        view.scene.update_animations()
+        
+        # タイマーが停止されることを確認
+        assert not view.scene.animation_timer.isActive()
