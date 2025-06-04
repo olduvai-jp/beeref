@@ -879,7 +879,7 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         old_frame = self.current_frame
         self.current_frame = (self.current_frame + 1) % len(self.frames)
         self.update()  # 再描画をトリガー
-        logger.info(f'Frame changed from {old_frame} to {self.current_frame}')
+        logger.debug(f'Frame changed from {old_frame} to {self.current_frame}')
         
         # 次のフレームのタイマーを設定
         if self.scene() and self._animation_started:
@@ -898,7 +898,7 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             self.frame_timer = 0
             old_frame = self.current_frame
             self.current_frame = (self.current_frame + 1) % len(self.frames)
-            logger.info(f'Frame changed from {old_frame} to {self.current_frame} for {self}')
+            logger.debug(f'Frame changed from {old_frame} to {self.current_frame} for {self}')
             return True
         
         return False
@@ -1018,3 +1018,88 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
     def copy_to_clipboard(self, clipboard):
         """現在のフレームをクリップボードにコピー"""
         clipboard.setPixmap(self.pixmap())
+    
+    def pixmap_to_bytes(self, apply_grayscale=False, apply_crop=False):
+        """アニメーションデータをバイト列に変換（保存用）"""
+        import json
+        
+        # アニメーションデータをJSONとして保存
+        animation_data = {
+            'frames': [],
+            'delays': self.delays,
+            'current_frame': self.current_frame
+        }
+        
+        # 各フレームをPNGバイト列に変換
+        for frame_pixmap in self.frames:
+            barray = QtCore.QByteArray()
+            buffer = QtCore.QBuffer(barray)
+            buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+            
+            pm = frame_pixmap
+            if apply_grayscale and self.grayscale:
+                # グレースケール変換が必要な場合
+                img = pm.toImage()
+                img = img.convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
+                pm = QtGui.QPixmap.fromImage(img)
+            
+            if apply_crop:
+                pm = pm.copy(self.crop.toRect())
+            
+            img = pm.toImage()
+            img.save(buffer, 'PNG', quality=90)
+            animation_data['frames'].append(barray.data().hex())
+        
+        # JSONを文字列として保存
+        json_str = json.dumps(animation_data)
+        return (json_str.encode('utf-8'), 'json')
+    
+    def pixmap_from_bytes(self, data):
+        """バイト列からアニメーションデータを復元"""
+        import json
+        
+        try:
+            # JSONデータを解析
+            json_str = data.decode('utf-8')
+            animation_data = json.loads(json_str)
+            
+            # フレームデータを復元
+            frames = []
+            for frame_hex in animation_data['frames']:
+                frame_bytes = bytes.fromhex(frame_hex)
+                pixmap = QtGui.QPixmap()
+                pixmap.loadFromData(frame_bytes)
+                frames.append(pixmap)
+            
+            # アニメーションデータを設定
+            self.frames = frames
+            self.delays = animation_data['delays']
+            self.current_frame = animation_data.get('current_frame', 0)
+            
+            # クロップ領域をリセット
+            self.reset_crop()
+            
+            logger.debug(f'Restored animated pixmap with {len(self.frames)} frames')
+            
+        except Exception as e:
+            logger.error(f'Failed to restore animated pixmap from bytes: {e}')
+            # エラーの場合は空のフレームを設定
+            self.frames = [QtGui.QPixmap()]
+            self.delays = [100]
+            self.current_frame = 0
+    
+    def get_filename_for_export(self, imgformat, save_id_default=None):
+        """エクスポート用のファイル名を生成"""
+        save_id = self.save_id or save_id_default
+        assert save_id is not None
+
+        if self.filename:
+            basename = os.path.splitext(os.path.basename(self.filename))[0]
+            return f'{save_id:04}-{basename}.{imgformat}'
+        else:
+            return f'{save_id:04}.{imgformat}'
+    
+    def get_imgformat(self, img=None):
+        """画像保存形式を決定（アニメーション用はJSONを返す）"""
+        # アニメーションデータはJSONとして保存するため
+        return 'json'
