@@ -690,7 +690,7 @@ class TestAnimatedPixmapRestoration:
         
         animation_data = {
             'frames': frames,
-            'delays': [100, 200]
+            'fps': 10  # 新API: fpsベース
         }
         
         # 元のアイテムを作成してバイト列に変換
@@ -731,7 +731,7 @@ class TestAnimatedPixmapRestoration:
         assert call_args['type'] == 'animated_pixmap'
         assert isinstance(call_args['item'], BeeAnimatedPixmapItem)
         assert len(call_args['item'].frames) == 2
-        assert call_args['item'].delays == [100, 200]
+        assert call_args['item'].delays == [100, 100]  # fps=10の場合
         assert call_args['item'].current_frame == 1
     
     def test_restore_animated_pixmap_invalid_data(self, qapp):

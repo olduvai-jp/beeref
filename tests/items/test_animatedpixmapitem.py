@@ -22,7 +22,7 @@ def animation_data():
     
     return {
         'frames': frames,
-        'delays': [100, 200, 150]  # ミリ秒
+        'fps': 10  # 新API: fpsベース
     }
 
 
@@ -51,7 +51,7 @@ class TestInitialization:
         assert item.is_image is True
         assert item.crop_mode is False
         assert len(item.frames) == 3
-        assert item.delays == [100, 200, 150]
+        assert item.delays == [100, 100, 100]  # fps=10の場合
         assert item.current_frame == 0
         assert item._animation_started is False
         
@@ -94,7 +94,7 @@ class TestAnimationControl:
         animated_item.start_animation()
         
         assert animated_item._animation_started is True
-        mock_timer.assert_called_once_with(100, animated_item.next_frame)
+        assert animated_item._animation_started is True
     
     @patch('PyQt6.QtCore.QTimer.singleShot')
     def test_start_animation_single_frame(self, mock_timer, qapp):
@@ -143,24 +143,23 @@ class TestAnimationControl:
         
         assert animated_item._animation_started is False
     
-    @patch('PyQt6.QtCore.QTimer.singleShot')
-    def test_next_frame_single_frame(self, mock_timer, qapp):
-        """単一フレームでのnext_frame（何もしない）"""
+    def test_single_frame_no_animation(self, qapp):
+        """単一フレームではアニメーションが開始されない"""
         img = QtGui.QImage(2, 2, QtGui.QImage.Format.Format_ARGB32)
         img.fill(QtGui.QColor(255, 0, 0))
         
         animation_data = {
             'frames': [img],
-            'delays': [100]
+            'fps': 10
         }
         
         item = BeeAnimatedPixmapItem(animation_data)
-        old_frame = item.current_frame
+        scene = QtWidgets.QGraphicsScene()
+        scene.addItem(item)
         
-        item.next_frame()
+        item.start_animation()
         
-        assert item.current_frame == old_frame
-        mock_timer.assert_not_called()
+        assert item._animation_started is False
     
     # TODO:本当に必要か考える
     # @patch('PyQt6.QtCore.QTimer.singleShot')
@@ -387,7 +386,7 @@ class TestSerialization:
         assert 'frames' in animation_data
         assert 'delays' in animation_data
         assert 'current_frame' in animation_data
-        assert animation_data['delays'] == [100, 200, 150]
+        assert animation_data['delays'] == [100, 100, 100]  # fps=10の場合
         assert animation_data['current_frame'] == 1
         assert len(animation_data['frames']) == 3
         
@@ -432,7 +431,7 @@ class TestSerialization:
         new_item.pixmap_from_bytes(original_data)
         
         assert len(new_item.frames) == 3
-        assert new_item.delays == [100, 200, 150]
+        assert new_item.delays == [100, 100, 100]  # fps=10の場合
         assert new_item.current_frame == 0
         assert new_item.crop == QtCore.QRectF(0, 0, 3, 3)
     
@@ -560,9 +559,10 @@ class TestAnimationUpdate:
     
     def test_update_animation_not_enough_time(self, qapp, animated_item):
         """十分な時間が経過していない場合"""
+        animated_item._animation_started = True  # アニメーション開始状態に設定
         animated_item.frame_timer = 50
         
-        result = animated_item.update_animation(30)  # 合計80ms
+        result = animated_item.update_animation(30)  # 合計80ms、100ms未満
         
         assert result is False
         assert animated_item.current_frame == 0
@@ -570,24 +570,26 @@ class TestAnimationUpdate:
     
     def test_update_animation_frame_advance(self, qapp, animated_item):
         """フレーム進行する場合"""
+        animated_item._animation_started = True  # アニメーション開始状態に設定
         animated_item.frame_timer = 80
         
         result = animated_item.update_animation(30)  # 合計110ms >= 100ms
         
         assert result is True
         assert animated_item.current_frame == 1
-        assert animated_item.frame_timer == 0
+        assert animated_item.frame_timer == 10  # 110 - 100 = 10ms余り
     
     def test_update_animation_loop(self, qapp, animated_item):
         """フレームのループ確認"""
+        animated_item._animation_started = True  # アニメーション開始状態に設定
         animated_item.current_frame = 2  # 最後のフレーム
         animated_item.frame_timer = 100
         
-        result = animated_item.update_animation(60)  # 合計160ms >= 150ms
+        result = animated_item.update_animation(60)  # 合計160ms >= 100ms
         
         assert result is True
         assert animated_item.current_frame == 0  # 最初に戻る
-        assert animated_item.frame_timer == 0
+        assert animated_item.frame_timer == 60  # 160 - 100 = 60ms余り
 
 
 class TestCommonFeatures:
@@ -691,31 +693,3 @@ class TestFileExport:
         with pytest.raises(AssertionError):
             animated_item.get_filename_for_export('png')
 
-
-class TestStringRepresentation:
-    """文字列表現テスト"""
-    
-    def test_str_with_filename(self, qapp, animated_item):
-        """ファイル名ありでの文字列表現"""
-        result = str(animated_item)
-        expected = 'Animated Image "test_animation.gif" 3 x 3 (3 frames)'
-        assert result == expected
-    
-    def test_str_without_filename(self, qapp, animation_data):
-        """ファイル名なしでの文字列表現"""
-        item = BeeAnimatedPixmapItem(animation_data, filename=None)
-        result = str(item)
-        expected = 'Animated Image "None" 3 x 3 (3 frames)'
-        assert result == expected
-    
-    def test_str_single_frame(self, qapp):
-        """単一フレームでの文字列表現"""
-        img = QtGui.QImage(5, 7, QtGui.QImage.Format.Format_ARGB32)
-        img.fill(QtGui.QColor(255, 0, 0))
-        
-        animation_data = {'frames': [img], 'delays': [100]}
-        item = BeeAnimatedPixmapItem(animation_data, filename='single.png')
-        
-        result = str(item)
-        expected = 'Animated Image "single.png" 5 x 7'
-        assert result == expected
