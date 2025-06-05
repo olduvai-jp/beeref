@@ -22,7 +22,7 @@ from PyQt6 import QtCore, QtGui
 
 from .errors import BeeFileIOError
 from beeref import constants, widgets
-from beeref.items import BeePixmapItem
+from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem
 
 
 logger = logging.getLogger(__name__)
@@ -287,6 +287,7 @@ class ImagesToDirectoryExporter(ExporterBase):
         self.scene = scene
         self.dirname = dirname
         self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
+        self.items.extend(list(self.scene.items_by_type(BeeAnimatedPixmapItem.TYPE)))
         self.max_save_id = 0
         for item in self.items:
             if item.save_id:
@@ -309,7 +310,14 @@ class ImagesToDirectoryExporter(ExporterBase):
                 worker.finished.emit(self.dirname, [])
                 return
 
-            pixmap, imgformat = item.pixmap_to_bytes()
+            if isinstance(item, BeeAnimatedPixmapItem):
+                pixmap, imgformat = item.to_animated_gif_bytes(apply_crop=True) # アニメーションGIFとしてエクスポート
+                if pixmap is None: # アニメーションフレームがない場合など
+                    logger.warning(f"Skipping export for {item} due to no animation frames or writer error.")
+                    self.emit_progress(worker, i)
+                    continue
+            else:
+                pixmap, imgformat = item.pixmap_to_bytes()
 
             if item.save_id:
                 filename = item.get_filename_for_export(imgformat)
