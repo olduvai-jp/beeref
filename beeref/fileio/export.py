@@ -363,3 +363,31 @@ class ImagesToDirectoryExporter(ExporterBase):
             self.emit_progress(worker, i)
 
         self.emit_finished(worker, self.dirname, [])
+
+
+class SelectedImagesToDirectoryExporter(ImagesToDirectoryExporter):
+    """Export selected images to a folder.
+
+    Inherits from ImagesToDirectoryExporter but only exports selected items.
+    """
+
+    def __init__(self, scene, dirname):
+        self.scene = scene
+        self.dirname = dirname
+        # Get only selected image items
+        selected_items = self.scene.selectedItems(user_only=True)
+        self.items = [item for item in selected_items
+                     if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedPixmapItem.TYPE)]
+        
+        if not self.items:
+            # No image items selected
+            self.items = []
+        
+        self.max_save_id = 0
+        for item in self.items:
+            if item.save_id:
+                self.max_save_id = max(self.max_save_id, item.save_id)
+        self.num_total = len(self.items)
+        self.start_from = 0
+        self.handle_existing = None
+

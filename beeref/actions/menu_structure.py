@@ -30,6 +30,7 @@ menu_structure = [
             'save_as',
             'export_scene',
             'export_images',
+            'export_selected_images',
             MENU_SEPARATOR,
             'quit',
         ],
