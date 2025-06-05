@@ -131,3 +131,66 @@ def test_settings_dialog_on_restore_defaults(msg_mock, settings, view):
     assert settings.valueOrDefault('Items/image_storage_format') == 'best'
     assert settings.valueOrDefault('Items/arrange_gap') == 0
     assert settings.valueOrDefault('Save/confirm_close_unsaved') is True
+
+
+def test_animation_format_sets_title_when_not_edited(settings, view):
+    """AnimationFormatWidget: 未編集時のタイトル設定"""
+    from beeref.widgets.settings import AnimationFormatWidget
+    widget = AnimationFormatWidget()
+    assert widget.title() == 'Animation Export Format:'
+
+
+def test_animation_format_sets_title_when_edited(settings, view):
+    """AnimationFormatWidget: 編集時のタイトル設定"""
+    from beeref.widgets.settings import AnimationFormatWidget
+    settings.setValue('Items/animation_export_format', 'webp')
+    widget = AnimationFormatWidget()
+    assert widget.title() == 'Animation Export Format: ✎'
+
+
+def test_animation_format_selects_radiobox(settings, view):
+    """AnimationFormatWidget: ラジオボタンの選択状態確認"""
+    from beeref.widgets.settings import AnimationFormatWidget
+    settings.setValue('Items/animation_export_format', 'webp')
+    widget = AnimationFormatWidget()
+    assert widget.buttons['gif'].isChecked() is False
+    assert widget.buttons['webp'].isChecked() is True
+
+
+def test_animation_format_saves_change(settings, view):
+    """AnimationFormatWidget: 値変更の保存確認"""
+    from beeref.widgets.settings import AnimationFormatWidget
+    settings.setValue('Items/animation_export_format', 'gif')
+    widget = AnimationFormatWidget()
+    widget.set_value('webp')
+    assert widget.buttons['gif'].isChecked() is False
+    assert widget.buttons['webp'].isChecked() is True
+    assert settings.valueOrDefault('Items/animation_export_format') == 'webp'
+    assert widget.title() == 'Animation Export Format: ✎'
+
+
+def test_animation_format_on_restore_defaults(settings, view):
+    """AnimationFormatWidget: デフォルト復元テスト"""
+    from beeref.widgets.settings import AnimationFormatWidget
+    widget = AnimationFormatWidget()
+    widget.set_value('webp')
+    settings.setValue('Items/animation_export_format', 'gif')
+    widget.on_restore_defaults()
+    assert widget.buttons['gif'].isChecked() is True
+    assert widget.buttons['webp'].isChecked() is False
+    assert widget.title() == 'Animation Export Format:'
+
+
+def test_animation_format_initial_state(settings, view):
+    """AnimationFormatWidget: 初期状態の確認"""
+    from beeref.widgets.settings import AnimationFormatWidget
+    widget = AnimationFormatWidget()
+    
+    # デフォルト値の確認
+    assert widget.buttons['gif'].isChecked() is True
+    assert widget.buttons['webp'].isChecked() is False
+    
+    # オプションの確認
+    assert 'gif' in widget.buttons
+    assert 'webp' in widget.buttons
+    assert len(widget.buttons) == 2

@@ -166,3 +166,39 @@ def test_settings_recent_files_update_respects_max_num(settings):
     assert len(recent) == 10
     assert recent[0] == os.path.abspath('14.bee')
     assert recent[-1] == os.path.abspath('5.bee')
+
+
+def test_animation_export_format_default(settings):
+    """アニメーションエクスポート形式設定のデフォルト値テスト"""
+    assert settings.valueOrDefault('Items/animation_export_format') == 'gif'
+
+
+def test_animation_export_format_valid_values(settings):
+    """アニメーションエクスポート形式設定の有効値テスト"""
+    # GIF形式
+    settings.setValue('Items/animation_export_format', 'gif')
+    assert settings.valueOrDefault('Items/animation_export_format') == 'gif'
+    
+    # WebP形式
+    settings.setValue('Items/animation_export_format', 'webp')
+    assert settings.valueOrDefault('Items/animation_export_format') == 'webp'
+
+
+def test_animation_export_format_invalid_value_returns_default(settings):
+    """アニメーションエクスポート形式設定の無効値でデフォルト値が返されることをテスト"""
+    settings.setValue('Items/animation_export_format', 'invalid_format')
+    assert settings.valueOrDefault('Items/animation_export_format') == 'gif'
+
+
+def test_animation_export_format_value_changed(settings):
+    """アニメーションエクスポート形式設定の変更検出テスト"""
+    # デフォルト値では変更なし
+    assert settings.value_changed('Items/animation_export_format') is False
+    
+    # 値を変更
+    settings.setValue('Items/animation_export_format', 'webp')
+    assert settings.value_changed('Items/animation_export_format') is True
+    
+    # デフォルト値に戻すと変更なしになる
+    settings.setValue('Items/animation_export_format', 'gif')
+    assert settings.value_changed('Items/animation_export_format') is False

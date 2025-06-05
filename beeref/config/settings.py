@@ -136,6 +136,10 @@ class BeeSettings(QtCore.QSettings):
             'cast': int,
             'validate': lambda x: x >= 0,
             'post_save_callback': QtGui.QImageReader.setAllocationLimit,
+        },
+        'Items/animation_export_format': {
+            'default': 'gif',
+            'validate': lambda x: x in ('gif', 'webp'),
         }
     }
 

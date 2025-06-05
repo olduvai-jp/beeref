@@ -177,6 +177,17 @@ class AllocationLimitWidget(IntegerGroup):
     MAX = 10000
 
 
+class AnimationFormatWidget(RadioGroup):
+    TITLE = 'Animation Export Format:'
+    HELPTEXT = ('The format to use when exporting animated images. '
+                'WebP provides better compression and quality, '
+                'while GIF has wider compatibility.')
+    KEY = 'Items/animation_export_format'
+    OPTIONS = (
+        ('gif', 'GIF', 'Export animations as GIF format (wider compatibility)'),
+        ('webp', 'WebP', 'Export animations as WebP format (better quality and compression)'))
+
+
 class ConfirmCloseUnsavedWidget(SingleCheckboxGroup):
     TITLE = 'Confirm when closing an unsaved file:'
     HELPTEXT = (
@@ -207,6 +218,7 @@ class SettingsDialog(QtWidgets.QDialog):
         items_layout.addWidget(AllocationLimitWidget(), 0, 1)
         items_layout.addWidget(ArrangeGapWidget(), 1, 0)
         items_layout.addWidget(ArrangeDefaultWidget(), 1, 1)
+        items_layout.addWidget(AnimationFormatWidget(), 2, 0)
         tabs.addTab(items, '&Images && Items')
 
         layout = QtWidgets.QVBoxLayout()

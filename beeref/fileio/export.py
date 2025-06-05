@@ -22,6 +22,7 @@ from PyQt6 import QtCore, QtGui
 
 from .errors import BeeFileIOError
 from beeref import constants, widgets
+from beeref.config import BeeSettings
 from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem
 
 
@@ -300,6 +301,10 @@ class ImagesToDirectoryExporter(ExporterBase):
         logger.debug(f'Exporting images to {self.dirname}')
         logger.debug(f'Starting at {self.start_from}')
 
+        # 設定値から動画形式を取得
+        settings = BeeSettings()
+        animation_format = settings.valueOrDefault('Items/animation_export_format')
+
         self.emit_begin_processing(worker, self.num_total)
         self.emit_progress(worker, self.start_from)
 
@@ -311,7 +316,12 @@ class ImagesToDirectoryExporter(ExporterBase):
                 return
 
             if isinstance(item, BeeAnimatedPixmapItem):
-                pixmap, imgformat = item.to_animated_gif_bytes(apply_crop=True) # アニメーションGIFとしてエクスポート
+                # 設定値に基づいてGIF/WebP形式を動的選択
+                if animation_format == 'webp':
+                    pixmap, imgformat = item.to_animated_webp_bytes(apply_crop=True)
+                else:  # デフォルトまたは'gif'の場合
+                    pixmap, imgformat = item.to_animated_gif_bytes(apply_crop=True)
+                
                 if pixmap is None: # アニメーションフレームがない場合など
                     logger.warning(f"Skipping export for {item} due to no animation frames or writer error.")
                     self.emit_progress(worker, i)

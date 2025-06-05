@@ -1199,3 +1199,81 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             except Exception as fe:
                 logger.error(f"Fallback GIF save also failed for {self}: {fe}")
             return None, 'gif'
+
+    def to_animated_webp_bytes(self, apply_crop=False):
+        """アニメーションWebP形式でバイトデータを返す (Pillowを使用)"""
+        if not self.frames:
+            logger.warning(f"No frames to export for {self}")
+            return None, 'webp'
+
+        def qimage_to_pil_image(qimage):
+            # QImageをPillow Imageに変換
+            # QImage -> PNG bytes -> Pillow Image
+            png_data = QtCore.QByteArray()
+            buffer = QtCore.QBuffer(png_data)
+            buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+            qimage.save(buffer, "PNG")
+            buffer.close() # Ensure data is flushed to png_data
+
+            # QByteArrayをPythonのbytesに変換し、io.BytesIOでラップする
+            image_bytes = png_data.data()
+            if not image_bytes:
+                logger.warning(f"QImage to PNG conversion resulted in empty bytes for a frame in {self}")
+                return None
+            
+            bytes_io_buffer = io.BytesIO(image_bytes)
+            pil_image = Image.open(bytes_io_buffer).convert("RGBA")
+            return pil_image
+
+        pil_frames = []
+        for frame_pixmap in self.frames:
+            pm_to_convert = frame_pixmap
+            if apply_crop:
+                # QRectFをQRectに変換する必要がある
+                crop_rect = self.crop.toRect()
+                # クロップ領域がPixmapの範囲内にあることを確認
+                if not QtCore.QRectF(pm_to_convert.rect()).contains(self.crop):
+                     logger.warning(f"Crop area {self.crop} is outside pixmap bounds {pm_to_convert.rect()} for {self}. Using full pixmap.")
+                else:
+                    pm_to_convert = pm_to_convert.copy(crop_rect)
+
+            qimage = pm_to_convert.toImage()
+            if qimage.isNull():
+                logger.warning(f"Failed to convert QPixmap to QImage for a frame in {self}")
+                continue
+            pil_frames.append(qimage_to_pil_image(qimage))
+
+        if not pil_frames:
+            logger.error(f"Could not convert any frames to PIL Images for {self}")
+            return None, 'webp'
+
+        byte_io = io.BytesIO()
+        try:
+            # self.delaysがフレームごとの遅延時間のリストであることを確認
+            # Pillowはミリ秒単位の整数または整数のリストを期待する
+            durations = [int(d) for d in self.delays] if self.delays else 100 # デフォルト100ms
+
+            pil_frames[0].save(
+                byte_io,
+                format='WebP',
+                save_all=True,
+                append_images=pil_frames[1:],
+                duration=durations,
+                loop=0,  # 0 for infinite loop
+                method=6,  # WebP圧縮品質（0-6、6が最高品質）
+                lossless=False  # ロスレス圧縮を無効にしてファイルサイズを抑制
+            )
+            logger.info(f"Successfully created animated WebP for {self} with {len(pil_frames)} frames.")
+            return byte_io.getvalue(), "webp"
+        except Exception as e:
+            logger.error(f"Failed to save animated WebP using Pillow for {self}: {e}")
+            # WebPでの保存に失敗した場合のフォールバック (最初のフレームを静止画として保存)
+            byte_io_fallback = io.BytesIO()
+            try:
+                if pil_frames:
+                    pil_frames[0].save(byte_io_fallback, format='WebP', method=6, lossless=False)
+                    logger.info(f"Fallback: Saved first frame as static WebP for {self}")
+                    return byte_io_fallback.getvalue(), "webp"
+            except Exception as fe:
+                logger.error(f"Fallback WebP save also failed for {self}: {fe}")
+            return None, 'webp'
