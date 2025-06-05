@@ -231,8 +231,8 @@ class SQLiteIO:
                     # 空のアニメーションデータで初期化
                     dummy_animation_data = {
                         'type': 'animated',
-                        'frames': [QtGui.QImage()],
-                        'delays': [100]
+                        'frames': [], # pixmap_from_bytes で設定される
+                        'fps': 10  # デフォルトFPS
                     }
                     item = BeeAnimatedPixmapItem(dummy_animation_data)
                     item.pixmap_from_bytes(row[9])

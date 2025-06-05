@@ -824,7 +824,21 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         # アニメーションデータを最初に設定
         self.frames = [QtGui.QPixmap.fromImage(frame)
                       for frame in animation_data['frames']]
-        self.delays = animation_data['delays']
+        self.fps = animation_data.get('fps', 0) # fpsキーが存在しない場合は24とする
+
+        if self.fps > 0:
+            delay_ms = int(1000 / self.fps)
+            self.delays = [delay_ms] * len(self.frames)
+        else:
+            # FPSが0または指定されていない場合は、デフォルトの遅延を設定
+            # または、エラー処理やログ出力を検討
+            self.delays = [100] * len(self.frames) # 例: 100ms (10 FPS相当)
+            if self.fps == 0 and 'fps' in animation_data : # fpsが0として渡された場合
+                logger.warning(f"Animation FPS is 0 for {self.filename}. Defaulting delays.")
+            elif 'fps' not in animation_data:
+                 logger.warning(f"Animation FPS not provided for {self.filename}. Defaulting delays.")
+
+
         self.current_frame = 0
         self.paint_counter = 0  # paint()呼び出し回数カウンター
         self.frame_timer = 0  # フレーム切り替え用のタイマー
@@ -858,47 +872,56 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
     
     def start_animation(self):
         """アニメーション開始"""
-        logger.info(f'start_animation called for {self}, frames: {len(self.frames)}, scene: {self.scene()}, started: {self._animation_started}')
+        logger.debug(f'start_animation called for {self}, frames: {len(self.frames)}, scene: {self.scene()}, started: {self._animation_started}')
         if len(self.frames) > 1 and self.scene() and not self._animation_started:
             self._animation_started = True
-            # QTimer.singleShotを使ってメインスレッドで確実にタイマーを動作させる
-            QtCore.QTimer.singleShot(self.delays[self.current_frame], self.next_frame)
-            logger.info(f'Started animation for {self} with delay {self.delays[self.current_frame]}ms using singleShot')
+            logger.debug(f'Started animation for {self}') # Removed delay info
     
     def stop_animation(self):
         """アニメーション停止"""
         self._animation_started = False
         logger.info(f'Stopped animation for {self}')
     
-    def next_frame(self):
-        """次のフレームに進む"""
-        logger.info(f'next_frame called for {self}, current: {self.current_frame}')
-        if len(self.frames) <= 1:
-            return
+    # def next_frame(self):
+    #     """次のフレームに進む"""
+    #     logger.info(f'next_frame called for {self}, current: {self.current_frame}')
+    #     if len(self.frames) <= 1:
+    #         return
             
-        old_frame = self.current_frame
-        self.current_frame = (self.current_frame + 1) % len(self.frames)
-        self.update()  # 再描画をトリガー
-        logger.debug(f'Frame changed from {old_frame} to {self.current_frame}')
+    #     old_frame = self.current_frame
+    #     self.current_frame = (self.current_frame + 1) % len(self.frames)
+    #     self.update()  # 再描画をトリガー
+    #     logger.debug(f'Frame changed from {old_frame} to {self.current_frame}')
         
-        # 次のフレームのタイマーを設定
-        if self.scene() and self._animation_started:
-            QtCore.QTimer.singleShot(self.delays[self.current_frame], self.next_frame)
-            logger.info(f'Next timer started with delay {self.delays[self.current_frame]}ms using singleShot')
+    #     # 次のフレームのタイマーを設定する QTimer.singleShot の呼び出しを削除
+    #     # if self.scene() and self._animation_started:
+    #     #     QtCore.QTimer.singleShot(self.delays[self.current_frame], self.next_frame)
+    #     #     logger.info(f'Next timer started with delay {self.delays[self.current_frame]}ms using singleShot')
     
     def update_animation(self, elapsed_ms):
-        """シーンのタイマーから呼ばれるアニメーション更新"""
-        if len(self.frames) <= 1:
+        """シーンのタイマーから呼ばれるアニメーション更新。経過時間に基づいてフレームをスキップする。"""
+        if not self._animation_started or len(self.frames) <= 1 or not self.delays:
             return False
-            
+
         self.frame_timer += elapsed_ms
-        current_delay = self.delays[self.current_frame]
+        frames_advanced = 0
         
-        if self.frame_timer >= current_delay:
-            self.frame_timer = 0
-            old_frame = self.current_frame
+        # delaysが全て同じ値であることを前提とする（fpsベースで計算されているため）
+        # もしフレーム毎に異なるdelayをサポートする場合は、ここでのロジック変更が必要
+        delay_per_frame = self.delays[0] # 全フレーム同じ遅延と仮定
+
+        if delay_per_frame <= 0: # ゼロ除算や無限ループを避ける
+            logger.warning(f"Delay per frame is {delay_per_frame} for {self}. Animation may not work correctly.")
+            return False
+
+        while self.frame_timer >= delay_per_frame and len(self.frames) > 0:
+            self.frame_timer -= delay_per_frame
             self.current_frame = (self.current_frame + 1) % len(self.frames)
-            logger.debug(f'Frame changed from {old_frame} to {self.current_frame} for {self}')
+            frames_advanced += 1
+        
+        if frames_advanced > 0:
+            logger.debug(f'Advanced {frames_advanced} frame(s) to {self.current_frame} for {self} (timer: {self.frame_timer:.2f}ms left)')
+            # self.update() # paintEventで描画されるため、ここでは不要な場合が多い
             return True
         
         return False
@@ -994,7 +1017,7 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         animation_data = {
             'type': 'animated',
             'frames': [pm.toImage() for pm in self.frames],
-            'delays': self.delays
+            'fps': self.fps  # delaysの代わりにfpsを渡す
         }
         item = BeeAnimatedPixmapItem(animation_data, self.filename)
         item.setPos(self.pos())
