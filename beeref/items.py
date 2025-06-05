@@ -909,12 +909,6 @@ class BeeAnimatedPixmapItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             return self.frames[self.current_frame]
         return QtGui.QPixmap()
     
-    def boundingRect(self):
-        """バウンディングボックス"""
-        if self.crop_mode:
-            return QtCore.QRectF(self.pixmap().rect())
-        else:
-            return self.crop
     
     def bounding_rect_unselected(self):
         if self.crop_mode:
