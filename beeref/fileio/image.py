@@ -117,79 +117,15 @@ def load_animated_data(path):
         return None
 
 
-def load_animated_frames(path):
-    """レガシーBeeAnimatedPixmapItem用：アニメーションGIFの全フレームを読み込む"""
-    try:
-        reader = QtGui.QImageReader(path)
-        frames = []
-        delays = []
-        
-        for i in range(reader.imageCount()):
-            reader.jumpToImage(i)
-            frame = reader.read()
-            if frame.isNull():
-                logger.warning(f'Failed to read frame {i} from {path}')
-                continue
-                
-            delay = reader.nextImageDelay()  # ミリ秒
-            
-            frames.append(frame)
-            delays.append(max(delay, 50))  # 最小50ms
-        
-        logger.debug(f'Loaded {len(frames)} frames from {path}')
-        if not frames: # フレームが読み込めなかった場合
-            logger.warning(f'No frames could be loaded from {path}')
-            return None
-
-        # delaysからFPSを計算
-        # QImageReader.nextImageDelay() はミリ秒を返す
-        # 0の場合はデフォルト値を使用するなどの考慮が必要
-        valid_delays = [d for d in delays if d > 0]
-        if not valid_delays:
-            # 有効な遅延情報がない場合はデフォルトFPS (例: 10 FPS)
-            fps = 10
-            logger.warning(f"No valid delay information for {path}, defaulting to {fps} FPS.")
-        else:
-            average_delay_ms = sum(valid_delays) / len(valid_delays)
-            fps = 1000 / average_delay_ms
-            # FPSが極端に低い/高い場合の丸め処理や警告も検討できる
-            if fps < 1:
-                logger.warning(f"Calculated FPS is very low ({fps:.2f}) for {path}. Clamping to 1 FPS.")
-                fps = 1
-            elif fps > 120: # 例: 上限120 FPS
-                logger.warning(f"Calculated FPS is very high ({fps:.2f}) for {path}. Clamping to 120 FPS.")
-                fps = 120
-
-        return {
-            'type': 'animated',
-            'frames': frames,
-            'fps': fps,
-            'path': path
-        }
-    except Exception as e:
-        logger.error(f'Failed to load animated frames from {path}: {e}')
-        return None
-
 
 def load_image(path):
-    from beeref.config import BeeSettings
-    
     if isinstance(path, str):
         path = os.path.normpath(path)
         if is_animated_image(path):
-            settings = BeeSettings()
-            use_data_item = settings.valueOrDefault('Items/animation_use_data_item')
-            
-            if use_data_item:
-                # 新しいBeeAnimatedDataItem用のデータ
-                animated_data = load_animated_data(path)
-                if animated_data:
-                    return (animated_data, path)
-            else:
-                # レガシーBeeAnimatedPixmapItem用のデータ
-                animated_data = load_animated_frames(path)
-                if animated_data:
-                    return (animated_data, path)
+            # 新しいBeeAnimatedDataItem用のデータを使用
+            animated_data = load_animated_data(path)
+            if animated_data:
+                return (animated_data, path)
             
             # アニメーション読み込みに失敗した場合は静止画として処理
             logger.warning(f'Failed to load as animation, fallback to static image: {path}')
@@ -197,17 +133,9 @@ def load_image(path):
     if path.isLocalFile():
         path = os.path.normpath(path.toLocalFile())
         if is_animated_image(path):
-            settings = BeeSettings()
-            use_data_item = settings.valueOrDefault('Items/animation_use_data_item')
-            
-            if use_data_item:
-                animated_data = load_animated_data(path)
-                if animated_data:
-                    return (animated_data, path)
-            else:
-                animated_data = load_animated_frames(path)
-                if animated_data:
-                    return (animated_data, path)
+            animated_data = load_animated_data(path)
+            if animated_data:
+                return (animated_data, path)
         return (exif_rotated_image(path), path)
 
     url = bytes(path.toEncoded()).decode()

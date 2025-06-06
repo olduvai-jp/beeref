@@ -141,10 +141,6 @@ class BeeSettings(QtCore.QSettings):
             'default': 'same_as_source',
             'validate': lambda x: x in ('gif', 'webp', 'same_as_source'),
         },
-        'Items/animation_use_data_item': {
-            'default': True,
-            'cast': lambda x: x if isinstance(x, bool) else str(x).lower() in ('true', '1', 'yes', 'on'),
-        },
         'Items/animation_frame_cache_size': {
             'default': 10,
             'cast': int,

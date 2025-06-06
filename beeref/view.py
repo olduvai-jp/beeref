@@ -562,7 +562,7 @@ class BeeGraphicsView(MainControlsMixin,
         selected_items = self.scene.selectedItems(user_only=True)
         image_items = [item for item in selected_items
                        if hasattr(item, 'TYPE') and
-                       item.TYPE in ('pixmap', 'animated_pixmap')]
+                       item.TYPE == 'pixmap']
         
         if not image_items:
             QtWidgets.QMessageBox.information(

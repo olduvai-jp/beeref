@@ -5,7 +5,7 @@ import pytest
 
 from PyQt6 import QtGui
 
-from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem
+from beeref.items import BeePixmapItem
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.export import SelectedImagesToDirectoryExporter
 
@@ -43,35 +43,6 @@ def test_selected_images_to_directory_exporter_export_selected_only(
         assert f.read().startswith(b'\x89PNG')
     with open(os.path.join(tmpdir, '0003.png'), 'rb') as f:
         assert f.read().startswith(b'\x89PNG')
-
-
-def test_selected_images_to_directory_exporter_pixmap_and_animated(
-        view, tmpdir, imgfilename3x3):
-    """静止画とアニメーション画像の両方が対象となることを確認"""
-    # 静止画アイテム
-    pixmap_item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
-    pixmap_item.save_id = 1
-    view.scene.addItem(pixmap_item)
-    
-    # アニメーション画像アイテム（正しい形式で作成）
-    animation_data = {
-        'frames': [QtGui.QImage(imgfilename3x3), QtGui.QImage(imgfilename3x3)],
-        'fps': 10
-    }
-    animated_item = BeeAnimatedPixmapItem(animation_data)
-    animated_item.save_id = 2
-    view.scene.addItem(animated_item)
-    
-    # 両方を選択
-    pixmap_item.setSelected(True)
-    animated_item.setSelected(True)
-    
-    exporter = SelectedImagesToDirectoryExporter(view.scene, tmpdir)
-    
-    # アイテムが正しくフィルタリングされていることを確認
-    assert len(exporter.items) == 2
-    assert pixmap_item in exporter.items
-    assert animated_item in exporter.items
 
 
 def test_selected_images_to_directory_exporter_no_image_items_selected(

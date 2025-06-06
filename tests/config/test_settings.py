@@ -208,28 +208,6 @@ def test_animation_export_format_value_changed(settings):
     assert settings.value_changed('Items/animation_export_format') is False
 
 
-def test_animation_use_data_item_default(settings):
-    """新しいアニメーションシステム使用設定のデフォルト値テスト"""
-    assert settings.valueOrDefault('Items/animation_use_data_item') is True
-
-
-def test_animation_use_data_item_value_casting(settings):
-    """新しいアニメーションシステム使用設定の型変換テスト"""
-    # 文字列からブール値へ変換
-    settings.setValue('Items/animation_use_data_item', 'True')
-    assert settings.valueOrDefault('Items/animation_use_data_item') is True
-    
-    settings.setValue('Items/animation_use_data_item', 'False')
-    assert settings.valueOrDefault('Items/animation_use_data_item') is False
-    
-    # 数値からブール値へ変換
-    settings.setValue('Items/animation_use_data_item', 1)
-    assert settings.valueOrDefault('Items/animation_use_data_item') is True
-    
-    settings.setValue('Items/animation_use_data_item', 0)
-    assert settings.valueOrDefault('Items/animation_use_data_item') is False
-
-
 def test_animation_frame_cache_size_default(settings):
     """アニメーションフレームキャッシュサイズ設定のデフォルト値テスト"""
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 10
@@ -273,12 +251,7 @@ def test_animation_frame_cache_size_type_casting(settings):
 
 
 def test_animation_settings_value_changed(settings):
-    """新しいアニメーション設定項目の変更検出テスト"""
-    # animation_use_data_item
-    assert settings.value_changed('Items/animation_use_data_item') is False
-    settings.setValue('Items/animation_use_data_item', False)
-    assert settings.value_changed('Items/animation_use_data_item') is True
-    
+    """アニメーション設定項目の変更検出テスト"""
     # animation_frame_cache_size
     assert settings.value_changed('Items/animation_frame_cache_size') is False
     settings.setValue('Items/animation_frame_cache_size', 20)

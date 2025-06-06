@@ -74,7 +74,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         super().addItem(item)
         
         # アニメーションアイテムが追加された場合、タイマーを開始
-        if hasattr(item, 'TYPE') and item.TYPE in ['animated_pixmap', 'animated_data']:
+        if hasattr(item, 'TYPE') and item.TYPE == 'animated_data':
             if not self.animation_timer.isActive():
                 self.animation_timer.start()
                 logger.info(f'Started animation timer for scene (added {item.TYPE} item)')
@@ -84,9 +84,9 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         super().removeItem(item)
         
         # アニメーションアイテムがなくなったらタイマーを停止
-        if hasattr(item, 'TYPE') and item.TYPE in ['animated_pixmap', 'animated_data']:
+        if hasattr(item, 'TYPE') and item.TYPE == 'animated_data':
             has_animated_items = any(
-                hasattr(i, 'TYPE') and i.TYPE in ['animated_pixmap', 'animated_data']
+                hasattr(i, 'TYPE') and i.TYPE == 'animated_data'
                 for i in self.items()
             )
             if not has_animated_items and self.animation_timer.isActive():
@@ -97,7 +97,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         """アニメーションアイテムの更新"""
         animated_items = [
             item for item in self.items()
-            if hasattr(item, 'TYPE') and item.TYPE in ['animated_pixmap', 'animated_data']
+            if hasattr(item, 'TYPE') and item.TYPE == 'animated_data'
         ]
         
         if not animated_items:

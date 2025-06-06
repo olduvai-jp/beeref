@@ -34,7 +34,7 @@ import tempfile
 from PyQt6 import QtGui
 
 from beeref import constants
-from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem, BeeAnimatedDataItem, BeeErrorItem
+from beeref.items import BeePixmapItem, BeeAnimatedDataItem, BeeErrorItem
 from .errors import BeeFileIOError, IMG_LOADING_ERROR_MSG
 from .schema import SCHEMA, USER_VERSION, MIGRATIONS, APPLICATION_ID
 
@@ -225,34 +225,6 @@ class SQLiteIO:
                         + IMG_LOADING_ERROR_MSG)
                     data['type'] = BeeErrorItem.TYPE
                 data['item'] = item
-            elif data['type'] == 'animated_pixmap':
-                # アニメーション画像の復元
-                try:
-                    # 空のアニメーションデータで初期化
-                    dummy_animation_data = {
-                        'type': 'animated',
-                        'frames': [], # pixmap_from_bytes で設定される
-                        'fps': 10  # デフォルトFPS
-                    }
-                    item = BeeAnimatedPixmapItem(dummy_animation_data)
-                    item.pixmap_from_bytes(row[9])
-                    
-                    # フレームが正常に復元されたかチェック
-                    if not item.frames or item.frames[0].isNull():
-                        data['data']['text'] = (
-                            f'Animated image could not be loaded: {item.filename}\n'
-                            + IMG_LOADING_ERROR_MSG)
-                        data['type'] = BeeErrorItem.TYPE
-                        item = BeeErrorItem(**data['data'])
-                    data['item'] = item
-                except Exception as e:
-                    logger.error(f'Failed to restore animated pixmap: {e}')
-                    data['data']['text'] = (
-                        f'Animated image could not be loaded: {data["data"].get("filename", "Unknown")}\n'
-                        + IMG_LOADING_ERROR_MSG)
-                    data['type'] = BeeErrorItem.TYPE
-                    item = BeeErrorItem(**data['data'])
-                    data['item'] = item
             elif data['type'] == 'animated_data':
                 # 新しいBeeAnimatedDataItem の復元
                 try:

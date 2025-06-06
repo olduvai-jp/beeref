@@ -21,7 +21,7 @@ from beeref import commands
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.sql import SQLiteIO, is_bee_file
-from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem, BeeAnimatedDataItem
+from beeref.items import BeePixmapItem, BeeAnimatedDataItem
 
 
 __all__ = [
@@ -75,18 +75,6 @@ def load_images(filenames, pos, scene, worker):
             item = BeeAnimatedDataItem(data['file_data'], filename)
             item.set_pos_center(pos)
             scene.add_item_later({'item': item, 'type': 'animated_data'}, selected=True)
-            items.append(item)
-        elif isinstance(data, dict) and data.get('type') == 'animated':
-            # レガシーBeeAnimatedPixmapItem用
-            if not data.get('frames'):
-                logger.info(f'No frames found in animated file {filename}')
-                errors.append(filename)
-                continue
-            
-            logger.info(f'Creating legacy animated item for {filename} with {len(data["frames"])} frames')
-            item = BeeAnimatedPixmapItem(data, filename)
-            item.set_pos_center(pos)
-            scene.add_item_later({'item': item, 'type': 'animated_pixmap'}, selected=True)
             items.append(item)
         else:
             # 静止画の場合
