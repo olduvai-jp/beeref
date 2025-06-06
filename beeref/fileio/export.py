@@ -23,7 +23,7 @@ from PyQt6 import QtCore, QtGui
 from .errors import BeeFileIOError
 from beeref import constants, widgets
 from beeref.config import BeeSettings
-from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem
+from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem, BeeAnimatedDataItem
 
 
 logger = logging.getLogger(__name__)
@@ -289,6 +289,7 @@ class ImagesToDirectoryExporter(ExporterBase):
         self.dirname = dirname
         self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
         self.items.extend(list(self.scene.items_by_type(BeeAnimatedPixmapItem.TYPE)))
+        self.items.extend(list(self.scene.items_by_type(BeeAnimatedDataItem.TYPE)))
         self.max_save_id = 0
         for item in self.items:
             if item.save_id:
@@ -315,9 +316,17 @@ class ImagesToDirectoryExporter(ExporterBase):
                 worker.finished.emit(self.dirname, [])
                 return
 
-            if isinstance(item, BeeAnimatedPixmapItem):
+            if isinstance(item, (BeeAnimatedPixmapItem, BeeAnimatedDataItem)):
                 # 設定値に基づいてGIF/WebP形式を動的選択
-                if animation_format == 'webp':
+                if animation_format == 'same_as_source':
+                    # Same as Source: BeeAnimatedDataItemの場合は元データを使用
+                    if isinstance(item, BeeAnimatedDataItem):
+                        pixmap, imgformat = item.to_same_as_source_bytes(apply_crop=True)
+                    else:
+                        # BeeAnimatedPixmapItemの場合はGIFにフォールバック
+                        logger.debug(f"Same as source not supported for {type(item)}, falling back to GIF")
+                        pixmap, imgformat = item.to_animated_gif_bytes(apply_crop=True)
+                elif animation_format == 'webp':
                     pixmap, imgformat = item.to_animated_webp_bytes(apply_crop=True)
                 else:  # デフォルトまたは'gif'の場合
                     pixmap, imgformat = item.to_animated_gif_bytes(apply_crop=True)
@@ -387,7 +396,7 @@ class SelectedImagesToDirectoryExporter(ImagesToDirectoryExporter):
         # Get only selected image items
         selected_items = self.scene.selectedItems(user_only=True)
         self.items = [item for item in selected_items
-                     if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedPixmapItem.TYPE)]
+                     if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedPixmapItem.TYPE, BeeAnimatedDataItem.TYPE)]
         
         if not self.items:
             # No image items selected

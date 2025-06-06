@@ -138,8 +138,17 @@ class BeeSettings(QtCore.QSettings):
             'post_save_callback': QtGui.QImageReader.setAllocationLimit,
         },
         'Items/animation_export_format': {
-            'default': 'gif',
-            'validate': lambda x: x in ('gif', 'webp'),
+            'default': 'same_as_source',
+            'validate': lambda x: x in ('gif', 'webp', 'same_as_source'),
+        },
+        'Items/animation_use_data_item': {
+            'default': True,
+            'cast': lambda x: x if isinstance(x, bool) else str(x).lower() in ('true', '1', 'yes', 'on'),
+        },
+        'Items/animation_frame_cache_size': {
+            'default': 10,
+            'cast': int,
+            'validate': lambda x: 1 <= x <= 50,
         }
     }
 

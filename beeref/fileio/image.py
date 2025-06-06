@@ -94,8 +94,31 @@ def is_animated_image(path):
         return False
 
 
+def load_animated_data(path):
+    """新しいBeeAnimatedDataItem用：アニメーションファイルの元データを読み込む"""
+    try:
+        with open(path, 'rb') as f:
+            file_data = f.read()
+        
+        # フレーム数とフォーマットの確認
+        reader = QtGui.QImageReader(path)
+        if not reader.supportsAnimation() or reader.imageCount() <= 1:
+            logger.warning(f'File is not a valid animation: {path}')
+            return None
+            
+        logger.debug(f'Loaded animation data for {path} ({len(file_data)} bytes, {reader.imageCount()} frames)')
+        return {
+            'type': 'animated_data',
+            'file_data': file_data,
+            'path': path
+        }
+    except Exception as e:
+        logger.error(f'Failed to load animated data from {path}: {e}')
+        return None
+
+
 def load_animated_frames(path):
-    """アニメーションGIFの全フレームを読み込む"""
+    """レガシーBeeAnimatedPixmapItem用：アニメーションGIFの全フレームを読み込む"""
     try:
         reader = QtGui.QImageReader(path)
         frames = []
@@ -137,7 +160,6 @@ def load_animated_frames(path):
                 logger.warning(f"Calculated FPS is very high ({fps:.2f}) for {path}. Clamping to 120 FPS.")
                 fps = 120
 
-
         return {
             'type': 'animated',
             'frames': frames,
@@ -150,21 +172,42 @@ def load_animated_frames(path):
 
 
 def load_image(path):
+    from beeref.config import BeeSettings
+    
     if isinstance(path, str):
         path = os.path.normpath(path)
         if is_animated_image(path):
-            animated_data = load_animated_frames(path)
-            if animated_data:
-                return (animated_data, path)
+            settings = BeeSettings()
+            use_data_item = settings.valueOrDefault('Items/animation_use_data_item')
+            
+            if use_data_item:
+                # 新しいBeeAnimatedDataItem用のデータ
+                animated_data = load_animated_data(path)
+                if animated_data:
+                    return (animated_data, path)
+            else:
+                # レガシーBeeAnimatedPixmapItem用のデータ
+                animated_data = load_animated_frames(path)
+                if animated_data:
+                    return (animated_data, path)
+            
             # アニメーション読み込みに失敗した場合は静止画として処理
             logger.warning(f'Failed to load as animation, fallback to static image: {path}')
         return (exif_rotated_image(path), path)
     if path.isLocalFile():
         path = os.path.normpath(path.toLocalFile())
         if is_animated_image(path):
-            animated_data = load_animated_frames(path)
-            if animated_data:
-                return (animated_data, path)
+            settings = BeeSettings()
+            use_data_item = settings.valueOrDefault('Items/animation_use_data_item')
+            
+            if use_data_item:
+                animated_data = load_animated_data(path)
+                if animated_data:
+                    return (animated_data, path)
+            else:
+                animated_data = load_animated_frames(path)
+                if animated_data:
+                    return (animated_data, path)
         return (exif_rotated_image(path), path)
 
     url = bytes(path.toEncoded()).decode()

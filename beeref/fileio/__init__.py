@@ -21,7 +21,7 @@ from beeref import commands
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.sql import SQLiteIO, is_bee_file
-from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem
+from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem, BeeAnimatedDataItem
 
 
 __all__ = [
@@ -64,13 +64,26 @@ def load_images(filenames, pos, scene, worker):
         worker.progress.emit(i)
         
         # アニメーションデータの場合
-        if isinstance(data, dict) and data.get('type') == 'animated':
+        if isinstance(data, dict) and data.get('type') == 'animated_data':
+            # 新しいBeeAnimatedDataItem用
+            if not data.get('file_data'):
+                logger.info(f'No file data found in animated file {filename}')
+                errors.append(filename)
+                continue
+            
+            logger.info(f'Creating new animated data item for {filename}')
+            item = BeeAnimatedDataItem(data['file_data'], filename)
+            item.set_pos_center(pos)
+            scene.add_item_later({'item': item, 'type': 'animated_data'}, selected=True)
+            items.append(item)
+        elif isinstance(data, dict) and data.get('type') == 'animated':
+            # レガシーBeeAnimatedPixmapItem用
             if not data.get('frames'):
                 logger.info(f'No frames found in animated file {filename}')
                 errors.append(filename)
                 continue
             
-            logger.info(f'Creating animated item for {filename} with {len(data["frames"])} frames')
+            logger.info(f'Creating legacy animated item for {filename} with {len(data["frames"])} frames')
             item = BeeAnimatedPixmapItem(data, filename)
             item.set_pos_center(pos)
             scene.add_item_later({'item': item, 'type': 'animated_pixmap'}, selected=True)

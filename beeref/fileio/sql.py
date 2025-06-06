@@ -34,7 +34,7 @@ import tempfile
 from PyQt6 import QtGui
 
 from beeref import constants
-from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem, BeeErrorItem
+from beeref.items import BeePixmapItem, BeeAnimatedPixmapItem, BeeAnimatedDataItem, BeeErrorItem
 from .errors import BeeFileIOError, IMG_LOADING_ERROR_MSG
 from .schema import SCHEMA, USER_VERSION, MIGRATIONS, APPLICATION_ID
 
@@ -247,6 +247,29 @@ class SQLiteIO:
                     data['item'] = item
                 except Exception as e:
                     logger.error(f'Failed to restore animated pixmap: {e}')
+                    data['data']['text'] = (
+                        f'Animated image could not be loaded: {data["data"].get("filename", "Unknown")}\n'
+                        + IMG_LOADING_ERROR_MSG)
+                    data['type'] = BeeErrorItem.TYPE
+                    item = BeeErrorItem(**data['data'])
+                    data['item'] = item
+            elif data['type'] == 'animated_data':
+                # 新しいBeeAnimatedDataItem の復元
+                try:
+                    # バイト列からアニメーションデータを復元
+                    item = BeeAnimatedDataItem(b'')  # 一時的に空データで初期化
+                    item.pixmap_from_bytes(row[9])
+                    
+                    # フレーム情報が正常に復元されたかチェック
+                    if not hasattr(item, '_frame_count') or item._frame_count <= 0:
+                        data['data']['text'] = (
+                            f'Animated image could not be loaded: {item.filename}\n'
+                            + IMG_LOADING_ERROR_MSG)
+                        data['type'] = BeeErrorItem.TYPE
+                        item = BeeErrorItem(**data['data'])
+                    data['item'] = item
+                except Exception as e:
+                    logger.error(f'Failed to restore animated data item: {e}')
                     data['data']['text'] = (
                         f'Animated image could not be loaded: {data["data"].get("filename", "Unknown")}\n'
                         + IMG_LOADING_ERROR_MSG)
