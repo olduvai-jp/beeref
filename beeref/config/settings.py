@@ -145,6 +145,11 @@ class BeeSettings(QtCore.QSettings):
             'default': 10,
             'cast': int,
             'validate': lambda x: 1 <= x <= 50,
+        },
+        'Items/animation_default_fps': {
+            'default': 8,
+            'cast': int,
+            'validate': lambda x: 1 <= x <= 60,
         }
     }
 

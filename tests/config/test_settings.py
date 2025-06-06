@@ -300,3 +300,102 @@ def test_same_as_source_value_changed_detection(settings):
     # デフォルト値（same_as_source）に戻すと変更なし
     settings.setValue('Items/animation_export_format', 'same_as_source')
     assert settings.value_changed('Items/animation_export_format') is False
+
+
+def test_animation_default_fps_default_value(settings):
+    """アニメーションデフォルトFPS設定のデフォルト値テスト"""
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+
+def test_animation_default_fps_valid_range(settings):
+    """アニメーションデフォルトFPS設定の有効範囲テスト"""
+    # 最小値
+    settings.setValue('Items/animation_default_fps', 1)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 1
+
+    # 中間値
+    settings.setValue('Items/animation_default_fps', 30)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 30
+
+    # 最大値
+    settings.setValue('Items/animation_default_fps', 60)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 60
+
+
+def test_animation_default_fps_invalid_range_returns_default(settings):
+    """アニメーションデフォルトFPS設定の無効範囲でデフォルト値が返されることをテスト"""
+    # 範囲外の値（小さすぎる）
+    settings.setValue('Items/animation_default_fps', 0)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+    # 範囲外の値（大きすぎる）
+    settings.setValue('Items/animation_default_fps', 61)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+    # 負の値
+    settings.setValue('Items/animation_default_fps', -5)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+
+def test_animation_default_fps_type_casting(settings):
+    """アニメーションデフォルトFPS設定の型変換テスト"""
+    # 文字列から整数へ変換
+    settings.setValue('Items/animation_default_fps', '25')
+    assert settings.valueOrDefault('Items/animation_default_fps') == 25
+
+    # 浮動小数点数から整数へ変換
+    settings.setValue('Items/animation_default_fps', 15.7)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 15
+
+    # 無効な文字列の場合はデフォルト値
+    settings.setValue('Items/animation_default_fps', 'invalid')
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+    # Noneの場合はデフォルト値
+    settings.setValue('Items/animation_default_fps', None)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+
+def test_animation_default_fps_edge_cases(settings):
+    """アニメーションデフォルトFPS設定のエッジケーステスト"""
+    # 境界値テスト
+    # 1 FPS（最小値）
+    settings.setValue('Items/animation_default_fps', 1)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 1
+
+    # 60 FPS（最大値）
+    settings.setValue('Items/animation_default_fps', 60)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 60
+
+    # 0（最小値の下）
+    settings.setValue('Items/animation_default_fps', 0)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+    # 61（最大値の上）
+    settings.setValue('Items/animation_default_fps', 61)
+    assert settings.valueOrDefault('Items/animation_default_fps') == 10
+
+
+def test_animation_default_fps_value_changed(settings):
+    """アニメーションデフォルトFPS設定の変更検出テスト"""
+    # デフォルト値では変更なし
+    assert settings.value_changed('Items/animation_default_fps') is False
+
+    # 値を変更
+    settings.setValue('Items/animation_default_fps', 20)
+    assert settings.value_changed('Items/animation_default_fps') is True
+
+    # デフォルト値に戻すと変更なし
+    settings.setValue('Items/animation_default_fps', 10)
+    assert settings.value_changed('Items/animation_default_fps') is False
+
+
+def test_animation_default_fps_common_values(settings):
+    """アニメーションデフォルトFPS設定の一般的な値テスト"""
+    # 一般的なFPS値をテスト
+    common_fps_values = [1, 5, 10, 12, 15, 24, 25, 30, 50, 60]
+    
+    for fps in common_fps_values:
+        settings.setValue('Items/animation_default_fps', fps)
+        assert settings.valueOrDefault('Items/animation_default_fps') == fps
+        assert settings.value_changed('Items/animation_default_fps') == (fps != 10)

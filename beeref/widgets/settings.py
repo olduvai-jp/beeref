@@ -201,6 +201,15 @@ class AnimationCacheSizeWidget(IntegerGroup):
     MAX = 50
 
 
+class AnimationDefaultFpsWidget(IntegerGroup):
+    TITLE = 'Default Animation FPS:'
+    HELPTEXT = ('Default frames per second for animations that lack timing information. '
+                'This setting only applies when the source image has no valid delay data.')
+    KEY = 'Items/animation_default_fps'
+    MIN = 1
+    MAX = 60
+
+
 class ConfirmCloseUnsavedWidget(SingleCheckboxGroup):
     TITLE = 'Confirm when closing an unsaved file:'
     HELPTEXT = (
@@ -239,6 +248,7 @@ class SettingsDialog(QtWidgets.QDialog):
         animation.setLayout(animation_layout)
         animation_layout.addWidget(AnimationFormatWidget(), 0, 0)
         animation_layout.addWidget(AnimationCacheSizeWidget(), 0, 1)
+        animation_layout.addWidget(AnimationDefaultFpsWidget(), 1, 0)
         tabs.addTab(animation, '&Animation')
 
         layout = QtWidgets.QVBoxLayout()

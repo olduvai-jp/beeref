@@ -1133,9 +1133,22 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         frames_advanced = 0
 
         # 現在のフレームの遅延時間を取得
-        delay_per_frame = (
+        original_delay = (
             self._delays[self._current_frame]
             if self._current_frame < len(self._delays) else 100)
+        
+        # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
+        if original_delay <= 0 or original_delay == 100:
+            # デフォルトFPS設定から遅延時間を計算
+            default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
+            delay_per_frame = 1000 / default_fps
+            logger.debug(
+                f'Using default FPS: {default_fps} -> {delay_per_frame}ms delay '
+                f'(original delay was {original_delay}ms)')
+        else:
+            delay_per_frame = original_delay
+            logger.debug(f'Using original delay: {delay_per_frame}ms')
+        
         logger.debug(
             f'Current frame {self._current_frame}, '
             f'delay={delay_per_frame}ms, '
@@ -1169,9 +1182,17 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             #         f'{self._current_frame}')
 
             # 次のフレームの遅延時間を取得
-            delay_per_frame = (
+            next_original_delay = (
                 self._delays[self._current_frame]
                 if self._current_frame < len(self._delays) else 100)
+            
+            # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
+            if next_original_delay <= 0 or next_original_delay == 100:
+                # デフォルトFPS設定から遅延時間を計算
+                default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
+                delay_per_frame = 1000 / default_fps
+            else:
+                delay_per_frame = next_original_delay
 
         if frames_advanced > 0:
             logger.debug(
