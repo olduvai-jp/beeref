@@ -21,6 +21,7 @@ from beeref import commands
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.sql import SQLiteIO, is_bee_file
+from beeref.fileio.folder_import import import_folder_images, FolderImportOptions
 from beeref.items import BeePixmapItem, BeeAnimatedDataItem
 
 
@@ -98,6 +99,85 @@ def load_images(filenames, pos, scene, worker):
     scene.undo_stack.push(
         commands.InsertItems(scene, items, ignore_first_redo=True))
     worker.finished.emit('', errors)
+
+
+def load_folder_images(folder_path, pos, scene, worker):
+    """Add images from folder to existing scene."""
+    
+    try:
+        logger.info(f'Loading images from folder {folder_path}')
+        
+        # フォルダインポート実行
+        options = FolderImportOptions()
+        import_result = import_folder_images(folder_path, (pos.x(), pos.y()), options)
+        
+        if not import_result.items and not import_result.errors:
+            logger.info(f'No images found in folder {folder_path}')
+            worker.finished.emit('', [])
+            return
+        
+        worker.begin_processing.emit(len(import_result.items))
+        
+        items = []
+        errors = import_result.errors.copy()
+        
+        for i, item_data in enumerate(import_result.items):
+            try:
+                worker.progress.emit(i)
+                
+                if item_data['type'] == 'animated_data':
+                    # BeeAnimatedDataItemを作成
+                    animation_data = item_data['data']
+                    if animation_data and animation_data.get('file_data'):
+                        item = BeeAnimatedDataItem(
+                            animation_data['file_data'],
+                            item_data['filename']
+                        )
+                        item.set_pos_center(pos)
+                        scene.add_item_later(
+                            {'item': item, 'type': 'animated_data'}, selected=True)
+                        items.append(item)
+                    else:
+                        logger.warning(f"Invalid animation data: {item_data['filename']}")
+                        errors.append(item_data['filename'])
+                        
+                elif item_data['type'] == 'pixmap':
+                    # BeePixmapItemを作成
+                    item = BeePixmapItem(item_data['data'], item_data['filename'])
+                    item.set_pos_center(pos)
+                    scene.add_item_later(
+                        {'item': item, 'type': 'pixmap'}, selected=True)
+                    items.append(item)
+                    
+                else:
+                    logger.warning(f"Unknown item type: {item_data['type']}")
+                    errors.append(item_data.get('filename', 'unknown'))
+                    
+            except Exception as e:
+                logger.error(f"Error creating item from data: {e}")
+                errors.append(item_data.get('filename', 'unknown'))
+            
+            if worker.canceled:
+                break
+            # Give main thread time to process items:
+            worker.msleep(10)
+        
+        if items:
+            from beeref import commands
+            scene.undo_stack.push(
+                commands.InsertItems(scene, items, ignore_first_redo=True))
+        
+        # 結果をログに出力
+        logger.info(
+            f"Folder import completed: {import_result.animations_created} animations, "
+            f"{import_result.static_images} static images, {len(errors)} errors"
+        )
+        
+        worker.finished.emit('', errors)
+        
+    except Exception as e:
+        logger.error(f"Error during folder import: {e}")
+        worker.finished.emit('', [str(e)])
 
 
 class ThreadedIO(QtCore.QThread):

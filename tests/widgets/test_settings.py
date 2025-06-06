@@ -327,9 +327,9 @@ def test_animation_default_fps_on_restore_defaults(settings, view):
     from beeref.widgets.settings import AnimationDefaultFpsWidget
     widget = AnimationDefaultFpsWidget()
     widget.set_value(45)
-    settings.setValue('Items/animation_default_fps', 10)
+    settings.setValue('Items/animation_default_fps', 8)
     widget.on_restore_defaults()
-    assert widget.input.value() == 10
+    assert widget.input.value() == 8
     assert widget.title() == 'Default Animation FPS:'
 
 
@@ -338,8 +338,8 @@ def test_animation_default_fps_initial_state(settings, view):
     from beeref.widgets.settings import AnimationDefaultFpsWidget
     widget = AnimationDefaultFpsWidget()
     
-    # デフォルト値の確認（10がデフォルト）
-    assert widget.input.value() == 10
+    # デフォルト値の確認（8がデフォルト）
+    assert widget.input.value() == 8
     
     # 範囲の確認
     assert widget.input.minimum() == 1
@@ -411,7 +411,7 @@ def test_animation_default_fps_widget_value_change_callback(settings, view):
     
     # 初期値確認
     initial_value = settings.valueOrDefault('Items/animation_default_fps')
-    assert initial_value == 10
+    assert initial_value == 8
     
     # ウィジェットで値を変更
     widget.input.setValue(20)

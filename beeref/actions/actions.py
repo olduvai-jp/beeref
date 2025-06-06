@@ -121,6 +121,12 @@ actions = ActionList([
         callback='on_action_open',
     ),
     Action(
+        id='import_folder',
+        text='Import &Folder...',
+        shortcuts=['Ctrl+Shift+O'],
+        callback='on_action_import_folder',
+    ),
+    Action(
         id='save',
         text='&Save',
         shortcuts=['Ctrl+S'],

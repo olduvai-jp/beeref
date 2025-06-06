@@ -72,6 +72,7 @@ menu_structure = [
         'menu': '&Insert',
         'items': [
             'insert_images',
+            'import_folder',
             'insert_text',
         ],
     },

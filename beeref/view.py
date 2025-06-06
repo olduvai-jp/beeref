@@ -689,6 +689,26 @@ class BeeGraphicsView(MainControlsMixin,
             parent=self)
         self.worker.start()
 
+    def do_import_folder(self, folder_path, pos=None):
+        if not pos:
+            pos = self.get_view_center()
+        self.scene.deselect_all_items()
+        self.undo_stack.beginMacro('Import Folder')
+        self.worker = fileio.ThreadedIO(
+            fileio.load_folder_images,
+            folder_path,
+            self.mapToScene(pos),
+            self.scene)
+        self.worker.progress.connect(self.on_items_loaded)
+        self.worker.finished.connect(
+            partial(self.on_insert_images_finished,
+                    not self.scene.items()))
+        self.progress = widgets.BeeProgressDialog(
+            'Importing folder images',
+            worker=self.worker,
+            parent=self)
+        self.worker.start()
+
     def on_action_insert_images(self):
         self.cancel_active_modes()
         formats = self.get_supported_image_formats(QtGui.QImageReader)
@@ -698,6 +718,15 @@ class BeeGraphicsView(MainControlsMixin,
             caption='Select one or more images to open',
             filter=f'Images ({formats})')
         self.do_insert_images(filenames)
+
+    def on_action_import_folder(self):
+        self.cancel_active_modes()
+        folder_path = QtWidgets.QFileDialog.getExistingDirectory(
+            parent=self,
+            caption='Select folder to import images from')
+        if folder_path:
+            folder_path = os.path.normpath(folder_path)
+            self.do_import_folder(folder_path)
 
     def on_action_insert_text(self):
         self.cancel_active_modes()

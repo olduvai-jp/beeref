@@ -275,7 +275,7 @@ class TestAnimationUpdate:
     def test_update_animation_frame_advance(self, qapp, animated_data_item):
         """フレーム進行テスト"""
         animated_data_item._frame_count = 3
-        animated_data_item._delays = [100, 150, 200]
+        animated_data_item._delays = [120, 150, 200]
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
 
@@ -286,10 +286,10 @@ class TestAnimationUpdate:
         assert animated_data_item.frame_timer == 50
 
         # 十分な時間（フレーム進行あり）
-        result = animated_data_item.update_animation(60)  # 合計110ms > 100ms
+        result = animated_data_item.update_animation(80)  # 合計130ms > 120ms
         assert result is True
         assert animated_data_item._current_frame == 1
-        assert animated_data_item.frame_timer == 10  # 110 - 100
+        assert animated_data_item.frame_timer == 10  # 130 - 120
 
     def test_update_animation_loop(self, qapp, animated_data_item):
         """フレームループテスト"""
