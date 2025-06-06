@@ -3,6 +3,8 @@ from unittest.mock import patch
 from PyQt6 import QtWidgets
 
 from beeref.widgets.settings import (
+    AnimationCacheSizeWidget,
+    AnimationFormatWidget,
     ArrangeGapWidget,
     ConfirmCloseUnsavedWidget,
     ImageStorageFormatWidget,
@@ -126,11 +128,13 @@ def test_settings_dialog_on_restore_defaults(msg_mock, settings, view):
     settings.setValue('Items/image_storage_format', 'jpg')
     settings.setValue('Items/arrange_gap', 10)
     settings.setValue('Save/confirm_close_unsaved', False)
+    settings.setValue('Items/animation_frame_cache_size', 25)
     dialog.on_restore_defaults()
     msg_mock.assert_called_once()
     assert settings.valueOrDefault('Items/image_storage_format') == 'best'
     assert settings.valueOrDefault('Items/arrange_gap') == 0
     assert settings.valueOrDefault('Save/confirm_close_unsaved') is True
+    assert settings.valueOrDefault('Items/animation_frame_cache_size') == 10
 
 
 def test_animation_format_sets_title_when_not_edited(settings, view):
@@ -197,3 +201,88 @@ def test_animation_format_initial_state(settings, view):
     assert 'gif' in widget.buttons
     assert 'webp' in widget.buttons
     assert len(widget.buttons) == 3  # same_as_source, gif, webp の3つ
+
+
+def test_animation_cache_size_sets_title_when_not_edited(settings, view):
+    """AnimationCacheSizeWidget: 未編集時のタイトル設定"""
+    widget = AnimationCacheSizeWidget()
+    assert widget.title() == 'Animation Frame Cache:'
+
+
+def test_animation_cache_size_sets_title_when_edited(settings, view):
+    """AnimationCacheSizeWidget: 編集時のタイトル設定"""
+    settings.setValue('Items/animation_frame_cache_size', 20)
+    widget = AnimationCacheSizeWidget()
+    assert widget.title() == 'Animation Frame Cache: ✎'
+
+
+def test_animation_cache_size_saves_change(settings, view):
+    """AnimationCacheSizeWidget: 値変更の保存確認"""
+    settings.setValue('Items/animation_frame_cache_size', 10)
+    widget = AnimationCacheSizeWidget()
+    widget.set_value(25)
+    assert widget.input.value() == 25
+    assert settings.valueOrDefault('Items/animation_frame_cache_size') == 25
+    assert widget.title() == 'Animation Frame Cache: ✎'
+
+
+def test_animation_cache_size_on_restore_defaults(settings, view):
+    """AnimationCacheSizeWidget: デフォルト復元テスト"""
+    widget = AnimationCacheSizeWidget()
+    widget.set_value(30)
+    settings.setValue('Items/animation_frame_cache_size', 10)
+    widget.on_restore_defaults()
+    assert widget.input.value() == 10
+    assert widget.title() == 'Animation Frame Cache:'
+
+
+def test_animation_cache_size_initial_state(settings, view):
+    """AnimationCacheSizeWidget: 初期状態の確認"""
+    widget = AnimationCacheSizeWidget()
+    
+    # デフォルト値の確認（10がデフォルト）
+    assert widget.input.value() == 10
+    
+    # 範囲の確認
+    assert widget.input.minimum() == 1
+    assert widget.input.maximum() == 50
+
+
+def test_settings_dialog_has_animation_tab(settings, view):
+    """SettingsDialog: Animationタブが存在することを確認"""
+    dialog = SettingsDialog(view)
+    tabs = dialog.findChild(QtWidgets.QTabWidget)
+    
+    # タブの数を確認（Miscellaneous, Images & Items, Animation）
+    assert tabs.count() == 3
+    
+    # Animationタブの存在確認
+    animation_tab_index = None
+    for i in range(tabs.count()):
+        if tabs.tabText(i) == '&Animation':
+            animation_tab_index = i
+            break
+    
+    assert animation_tab_index is not None, "Animationタブが見つかりません"
+
+
+def test_settings_dialog_animation_tab_contains_widgets(settings, view):
+    """SettingsDialog: AnimationタブにAnimationFormatWidgetとAnimationCacheSizeWidgetが含まれることを確認"""
+    dialog = SettingsDialog(view)
+    tabs = dialog.findChild(QtWidgets.QTabWidget)
+    
+    # Animationタブを取得
+    animation_tab = None
+    for i in range(tabs.count()):
+        if tabs.tabText(i) == '&Animation':
+            animation_tab = tabs.widget(i)
+            break
+    
+    assert animation_tab is not None, "Animationタブが見つかりません"
+    
+    # AnimationFormatWidgetとAnimationCacheSizeWidgetが含まれることを確認
+    animation_format_widget = animation_tab.findChild(AnimationFormatWidget)
+    animation_cache_widget = animation_tab.findChild(AnimationCacheSizeWidget)
+    
+    assert animation_format_widget is not None, "AnimationFormatWidgetが見つかりません"
+    assert animation_cache_widget is not None, "AnimationCacheSizeWidgetが見つかりません"

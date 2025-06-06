@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch, MagicMock
 
 from PyQt6 import QtCore, QtWidgets, QtGui
@@ -15,7 +16,11 @@ from beeref.widgets import (
 
 
 def test_debug_log_dialog(qtbot, settings, view):
-    with open(logfile_name(), 'w') as f:
+    # ログファイルのディレクトリを事前に作成
+    log_path = logfile_name()
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    
+    with open(log_path, 'w') as f:
         f.write('my log output')
 
     dialog = DebugLogDialog(view)

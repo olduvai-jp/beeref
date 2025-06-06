@@ -231,9 +231,15 @@ class SettingsDialog(QtWidgets.QDialog):
         items_layout.addWidget(AllocationLimitWidget(), 0, 1)
         items_layout.addWidget(ArrangeGapWidget(), 1, 0)
         items_layout.addWidget(ArrangeDefaultWidget(), 1, 1)
-        items_layout.addWidget(AnimationFormatWidget(), 2, 0)
-        items_layout.addWidget(AnimationCacheSizeWidget(), 2, 1)
         tabs.addTab(items, '&Images && Items')
+
+        # Animation
+        animation = QtWidgets.QWidget()
+        animation_layout = QtWidgets.QGridLayout()
+        animation.setLayout(animation_layout)
+        animation_layout.addWidget(AnimationFormatWidget(), 0, 0)
+        animation_layout.addWidget(AnimationCacheSizeWidget(), 0, 1)
+        tabs.addTab(animation, '&Animation')
 
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
