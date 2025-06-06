@@ -174,10 +174,11 @@ def test_animation_format_on_restore_defaults(settings, view):
     from beeref.widgets.settings import AnimationFormatWidget
     widget = AnimationFormatWidget()
     widget.set_value('webp')
-    settings.setValue('Items/animation_export_format', 'gif')
+    settings.setValue('Items/animation_export_format', 'same_as_source')
     widget.on_restore_defaults()
-    assert widget.buttons['gif'].isChecked() is True
+    assert widget.buttons['same_as_source'].isChecked() is True
     assert widget.buttons['webp'].isChecked() is False
+    # デフォルト復元後は編集マークが消える
     assert widget.title() == 'Animation Export Format:'
 
 
@@ -186,11 +187,13 @@ def test_animation_format_initial_state(settings, view):
     from beeref.widgets.settings import AnimationFormatWidget
     widget = AnimationFormatWidget()
     
-    # デフォルト値の確認
-    assert widget.buttons['gif'].isChecked() is True
+    # デフォルト値の確認（同じソース形式がデフォルト）
+    assert widget.buttons['same_as_source'].isChecked() is True
+    assert widget.buttons['gif'].isChecked() is False
     assert widget.buttons['webp'].isChecked() is False
     
     # オプションの確認
+    assert 'same_as_source' in widget.buttons
     assert 'gif' in widget.buttons
     assert 'webp' in widget.buttons
-    assert len(widget.buttons) == 2
+    assert len(widget.buttons) == 3  # same_as_source, gif, webp の3つ
