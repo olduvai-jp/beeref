@@ -958,7 +958,8 @@ def test_on_action_move_window_when_welcome_overlay(cursor_mock, view):
     view.on_action_move_window()
     assert view.welcome_overlay.movewin_active is True
     # After mapFromGlobal conversion, the coordinates are adjusted
-    expected_pos = view.welcome_overlay.mapFromGlobal(QtCore.QPointF(10.0, 20.0))
+    expected_pos = view.welcome_overlay.mapFromGlobal(
+        QtCore.QPointF(10.0, 20.0))
     assert view.welcome_overlay.event_start == expected_pos
 
 

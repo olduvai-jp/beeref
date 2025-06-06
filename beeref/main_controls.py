@@ -63,7 +63,7 @@ class MainControlsMixin:
         if event is not None:
             self.event_start = event.position()
         else:
-            # Fallback for backward compatibility - convert to local coordinates
+            # Fallback for backward compatibility - convert to local coords
             global_pos = QtCore.QPointF(self.cursor().pos())
             self.event_start = self.mapFromGlobal(global_pos)
         if hasattr(self, 'disable_mouse_events'):

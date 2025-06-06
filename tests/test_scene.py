@@ -1409,4 +1409,3 @@ def test_add_queued_items_ignores_unknown_type(view):
     assert len(view.scene.items()) == 1
     item = view.scene.items()[0]
     assert item.toPlainText() == 'Item of unknown type: foo'
-

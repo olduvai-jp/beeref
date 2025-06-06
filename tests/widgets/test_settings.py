@@ -186,12 +186,12 @@ def test_animation_format_initial_state(settings, view):
     """AnimationFormatWidget: 初期状態の確認"""
     from beeref.widgets.settings import AnimationFormatWidget
     widget = AnimationFormatWidget()
-    
+
     # デフォルト値の確認（同じソース形式がデフォルト）
     assert widget.buttons['same_as_source'].isChecked() is True
     assert widget.buttons['gif'].isChecked() is False
     assert widget.buttons['webp'].isChecked() is False
-    
+
     # オプションの確認
     assert 'same_as_source' in widget.buttons
     assert 'gif' in widget.buttons

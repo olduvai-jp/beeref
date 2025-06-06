@@ -23,8 +23,6 @@ import logging
 import os.path
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PIL import Image
-import io
 from PyQt6.QtCore import Qt
 
 from beeref import commands
@@ -811,10 +809,10 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 @register_item
 class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
     """元データ保持＋動的フレーム取得アプローチのアニメーション画像アイテム"""
-    
+
     TYPE = 'animated_data'
     CROP_HANDLE_SIZE = 15
-    
+
     def __init__(self, animation_file_data, filename=None, **kwargs):
         """
         Args:
@@ -827,7 +825,7 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         self.is_image = True
         self.crop_mode = False
         self.settings = BeeSettings()
-        
+
         # 元データを保持
         self._animation_data = animation_file_data
         self._image_reader = None
@@ -835,72 +833,89 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         self._frame_count = 0
         self._current_frame = 0
         self._delays = []
-        
+
         # QImageReaderを初期化してフレーム情報を取得
         self._initialize_reader()
-        
+
         # アニメーション制御
         self._animation_started = False
         self.frame_timer = 0
-        
+
         # その他の初期化
         self.reset_crop()
         self._grayscale = False
         self.init_selectable()
-        
-        logger.debug(f'Initialized {self} with {self._frame_count} frames from {len(animation_file_data)} bytes')
-    
+
+        logger.debug(
+            f'Initialized {self} with {self._frame_count} frames '
+            f'from {len(animation_file_data)} bytes'
+        )
+
     def _initialize_reader(self):
         """PIL を使って全フレームを初期化時に読み込む"""
         try:
             from PIL import Image
-            import io
             import tempfile
-            
-            logger.debug(f'Initializing animation with PIL for {self.filename}')
-            
+
+            logger.debug(
+                f'Initializing animation with PIL for {self.filename}'
+            )
+
             # 一時ファイルとして保存してPILで読み込み
-            with tempfile.NamedTemporaryFile(delete=True, suffix='.gif') as tmp_file:
+            with tempfile.NamedTemporaryFile(
+                delete=True, suffix='.gif'
+            ) as tmp_file:
                 tmp_file.write(self._animation_data)
                 tmp_file.flush()
-                
+
                 # PILでアニメーションを開く
                 with Image.open(tmp_file.name) as pil_img:
                     self._frame_count = getattr(pil_img, 'n_frames', 1)
                     self._delays = []
                     self._pil_frames = []  # PILフレームを保持
-                    
+
                     logger.debug(f'PIL detected {self._frame_count} frames')
-                    
+
                     # 全フレームを読み込み
                     for frame_idx in range(self._frame_count):
                         pil_img.seek(frame_idx)
-                        
+
                         # フレームの遅延時間を取得
                         delay = pil_img.info.get('duration', 100)  # ミリ秒
                         if delay <= 0:
                             delay = 100
                         self._delays.append(delay)
-                        
+
                         # PILフレームをRGBAに変換してコピー
                         frame_copy = pil_img.convert('RGBA').copy()
                         self._pil_frames.append(frame_copy)
-                        
+
                         # 最初のフレームはすぐにQPixmapに変換してキャッシュ
                         if frame_idx == 0:
                             qimage = self._pil_to_qimage(frame_copy)
                             if not qimage.isNull():
-                                self._frame_cache[0] = QtGui.QPixmap.fromImage(qimage)
-                                logger.debug(f'Cached initial frame: size={qimage.size()}')
-            
-            logger.debug(f'Successfully initialized PIL animation: {self._frame_count} frames, delays: {self._delays[:5]}...')
-            
+                                self._frame_cache[0] = QtGui.QPixmap.fromImage(
+                                    qimage
+                                )
+                                logger.debug(
+                                    f'Cached initial frame: '
+                                    f'size={qimage.size()}'
+                                )
+
+            logger.debug(
+                f'Successfully initialized PIL animation: {self._frame_count} '
+                f'frames, delays: {self._delays[:5]}...'
+            )
+
             # 従来のQImageReader関連の変数を設定（互換性のため）
             self._buffer = None
             self._image_reader = None
-            
+
         except Exception as e:
-            logger.error(f'Failed to initialize PIL animation for {self.filename}: {e}', exc_info=True)
+            logger.error(
+                f'Failed to initialize PIL animation for {self.filename}: {e}',
+                exc_info=True
+            )
             # フォールバック
             self._frame_count = 1
             self._delays = [100]
@@ -909,7 +924,7 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             self._frame_cache[0] = QtGui.QPixmap(100, 100)
             self._buffer = None
             self._image_reader = None
-    
+
     def _pil_to_qimage(self, pil_image):
         """PIL ImageをQImageに変換"""
         try:
@@ -918,7 +933,7 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             buffer = io.BytesIO()
             pil_image.save(buffer, format='PNG')
             buffer.seek(0)
-            
+
             # QImageとして読み込み
             qimage = QtGui.QImage()
             qimage.loadFromData(buffer.getvalue())
@@ -926,70 +941,100 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         except Exception as e:
             logger.error(f'Failed to convert PIL image to QImage: {e}')
             return QtGui.QImage()
-    
+
     def get_frame_pixmap(self, frame_index):
         """指定されたフレームのQPixmapを取得（PILベース、キャッシュ機能付き）"""
-        logger.debug(f'get_frame_pixmap called: frame_index={frame_index}, current_frame={self._current_frame}, frame_count={self._frame_count}')
-        
+        logger.debug(
+            f'get_frame_pixmap called: frame_index={frame_index}, '
+            f'current_frame={self._current_frame}, '
+            f'frame_count={self._frame_count}')
+
         if frame_index < 0 or frame_index >= self._frame_count:
-            logger.warning(f'Invalid frame_index {frame_index}, resetting to 0 (frame_count={self._frame_count})')
+            logger.warning(
+                f'Invalid frame_index {frame_index}, resetting to 0 '
+                f'(frame_count={self._frame_count})')
             frame_index = 0
-        
+
         # キャッシュにあるかチェック
         if frame_index in self._frame_cache:
             pixmap = self._frame_cache[frame_index]
-            logger.debug(f'Frame {frame_index} found in cache, pixmap null={pixmap.isNull()}, size={pixmap.size()}')
+            logger.debug(
+                f'Frame {frame_index} found in cache, pixmap '
+                f'null={pixmap.isNull()}, size={pixmap.size()}')
             return pixmap
-        
-        logger.debug(f'Frame {frame_index} not in cache, loading from PIL frames (cache keys: {list(self._frame_cache.keys())})')
-        
+
+        logger.debug(
+            f'Frame {frame_index} not in cache, loading from PIL frames '
+            f'(cache keys: {list(self._frame_cache.keys())})')
+
         # キャッシュにない場合はPILフレームから生成
         try:
             if not hasattr(self, '_pil_frames') or not self._pil_frames:
                 logger.error(f'No PIL frames available for {self.filename}')
                 return QtGui.QPixmap()
-            
+
             if frame_index >= len(self._pil_frames):
-                logger.error(f'Frame index {frame_index} out of range for PIL frames (count: {len(self._pil_frames)})')
+                logger.error(
+                    f'Frame index {frame_index} out of range for PIL frames '
+                    f'(count: {len(self._pil_frames)})')
                 return QtGui.QPixmap()
-            
+
             # PILフレームからQImageに変換
             pil_frame = self._pil_frames[frame_index]
-            logger.debug(f'Converting PIL frame {frame_index} to QImage, PIL size: {pil_frame.size}')
-            
+            logger.debug(
+                f'Converting PIL frame {frame_index} to QImage, '
+                f'PIL size: {pil_frame.size}')
+
             qimage = self._pil_to_qimage(pil_frame)
             if qimage.isNull():
-                logger.error(f'Failed to convert PIL frame {frame_index} to QImage for {self.filename}')
+                logger.error(
+                    f'Failed to convert PIL frame {frame_index} to QImage '
+                    f'for {self.filename}')
                 return QtGui.QPixmap()
-            
-            logger.debug(f'Successfully converted frame {frame_index}, QImage size: {qimage.size()}')
+
+            logger.debug(
+                f'Successfully converted frame {frame_index}, '
+                f'QImage size: {qimage.size()}')
             pixmap = QtGui.QPixmap.fromImage(qimage)
-            
+
             # キャッシュサイズ制限（メモリ効率のため最大10フレームまで）
             if len(self._frame_cache) >= 10:
                 # 現在表示中のフレームを削除しないよう改善
-                cache_keys = [k for k in self._frame_cache.keys() if k != self._current_frame]
+                cache_keys = [
+                    k for k in self._frame_cache.keys()
+                    if k != self._current_frame]
                 if cache_keys:
                     oldest_key = min(cache_keys)
-                    logger.debug(f'Cache full, removing oldest non-current frame {oldest_key} (current: {self._current_frame})')
+                    logger.debug(
+                        f'Cache full, removing oldest non-current frame '
+                        f'{oldest_key} (current: {self._current_frame})')
                     del self._frame_cache[oldest_key]
                 else:
                     # 現在のフレームしかない場合は最古のキャッシュを削除
                     oldest_key = min(self._frame_cache.keys())
-                    logger.debug(f'Cache full, removing oldest frame {oldest_key} (current: {self._current_frame})')
+                    logger.debug(
+                        f'Cache full, removing oldest frame {oldest_key} '
+                        f'(current: {self._current_frame})')
                     del self._frame_cache[oldest_key]
-            
+
             self._frame_cache[frame_index] = pixmap
-            logger.debug(f'Cached frame {frame_index} for {self.filename} (cache size: {len(self._frame_cache)}, keys: {list(self._frame_cache.keys())})')
+            logger.debug(
+                f'Cached frame {frame_index} for {self.filename} '
+                f'(cache size: {len(self._frame_cache)}, '
+                f'keys: {list(self._frame_cache.keys())})')
             return pixmap
-            
+
         except Exception as e:
-            logger.error(f'Exception in get_frame_pixmap for frame {frame_index} of {self.filename}: {e}', exc_info=True)
-        
+            logger.error(
+                f'Exception in get_frame_pixmap for frame {frame_index} '
+                f'of {self.filename}: {e}', exc_info=True)
+
         # エラー時は空のPixmapを返す
-        logger.error(f'Returning empty pixmap for frame {frame_index} of {self.filename}')
+        logger.error(
+            f'Returning empty pixmap for frame {frame_index} '
+            f'of {self.filename}')
         return QtGui.QPixmap()
-    
+
     @classmethod
     def create_from_data(cls, **kwargs):
         item = kwargs.pop('item')
@@ -1003,137 +1048,177 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         item.grayscale = data.get('grayscale', False)
         item._current_frame = data.get('current_frame', 0)
         return item
-    
+
     def __str__(self):
         size = self.pixmap().size()
-        frame_info = f' ({self._frame_count} frames)' if self._frame_count > 1 else ''
-        return (f'Animated Data Item "{self.filename}" {size.width()} x {size.height()}{frame_info}')
-    
+        frame_info = (f' ({self._frame_count} frames)'
+                      if self._frame_count > 1 else '')
+        return (
+            f'Animated Data Item "{self.filename}" '
+            f'{size.width()} x {size.height()}{frame_info}')
+
     def pixmap(self):
         """現在のフレームのPixmapを返す"""
         pixmap = self.get_frame_pixmap(self._current_frame)
-        logger.debug(f'pixmap() called for frame {self._current_frame}: null={pixmap.isNull()}, size={pixmap.size()}')
+        logger.debug(
+            f'pixmap() called for frame {self._current_frame}: '
+            f'null={pixmap.isNull()}, size={pixmap.size()}')
         return pixmap
-    
+
     @property
     def frames(self):
         """互換性のためのプロパティ（全フレーム数を返すリスト的なオブジェクト）"""
         class FrameAccessor:
             def __init__(self, parent):
                 self.parent = parent
-            
+
             def __len__(self):
                 return self.parent._frame_count
-            
+
             def __getitem__(self, index):
                 return self.parent.get_frame_pixmap(index)
-        
+
         return FrameAccessor(self)
-    
+
     @property
     def delays(self):
         """フレーム遅延時間のリスト"""
         return self._delays.copy()
-    
+
     @property
     def current_frame(self):
         return self._current_frame
-    
+
     @current_frame.setter
     def current_frame(self, value):
         if 0 <= value < self._frame_count:
             self._current_frame = value
-    
+
     def start_animation(self):
         """アニメーション開始"""
-        logger.debug(f'start_animation called for {self}, frames: {self._frame_count}, scene: {self.scene()}, started: {self._animation_started}')
-        if self._frame_count > 1 and self.scene() and not self._animation_started:
+        logger.debug(
+            f'start_animation called for {self}, frames: {self._frame_count}, '
+            f'scene: {self.scene()}, started: {self._animation_started}')
+        if (self._frame_count > 1 and self.scene() and
+                not self._animation_started):
             self._animation_started = True
             logger.debug(f'Started animation for {self}')
-    
+
     def stop_animation(self):
         """アニメーション停止"""
         self._animation_started = False
         logger.debug(f'Stopped animation for {self}')
-    
+
     def update_animation(self, elapsed_ms):
         """シーンのタイマーから呼ばれるアニメーション更新"""
-        logger.debug(f'update_animation called: elapsed_ms={elapsed_ms}, started={self._animation_started}, frame_count={self._frame_count}, delays={len(self._delays)}')
-        
+        logger.debug(
+            f'update_animation called: elapsed_ms={elapsed_ms}, '
+            f'started={self._animation_started}, '
+            f'frame_count={self._frame_count}, delays={len(self._delays)}')
+
         if not self._animation_started:
             logger.debug(f'Animation not started for {self.filename}')
             return False
-            
+
         if self._frame_count <= 1:
             logger.debug(f'Single frame animation for {self.filename}')
             return False
-            
+
         if not self._delays:
             logger.warning(f'No delays configured for {self.filename}')
             return False
-        
+
         old_frame = self._current_frame
         self.frame_timer += elapsed_ms
         frames_advanced = 0
-        
+
         # 現在のフレームの遅延時間を取得
-        delay_per_frame = self._delays[self._current_frame] if self._current_frame < len(self._delays) else 100
-        logger.debug(f'Current frame {self._current_frame}, delay={delay_per_frame}ms, frame_timer={self.frame_timer:.2f}ms')
-        
+        delay_per_frame = (
+            self._delays[self._current_frame]
+            if self._current_frame < len(self._delays) else 100)
+        logger.debug(
+            f'Current frame {self._current_frame}, '
+            f'delay={delay_per_frame}ms, '
+            f'frame_timer={self.frame_timer:.2f}ms')
+
         if delay_per_frame <= 0:
-            logger.warning(f"Delay per frame is {delay_per_frame} for {self}. Animation may not work correctly.")
+            logger.warning(
+                f"Delay per frame is {delay_per_frame} for {self}. "
+                f"Animation may not work correctly.")
             return False
-        
-        while self.frame_timer >= delay_per_frame and self._frame_count > 0:
+
+        while (self.frame_timer >= delay_per_frame and
+               self._frame_count > 0):
             self.frame_timer -= delay_per_frame
             old_current_frame = self._current_frame
-            self._current_frame = (self._current_frame + 1) % self._frame_count
+            self._current_frame = (
+                (self._current_frame + 1) % self._frame_count)
             frames_advanced += 1
-            
-            logger.debug(f'Frame advanced from {old_current_frame} to {self._current_frame} (loop completed: {self._current_frame == 0})')
-            
+
+            logger.debug(
+                f'Frame advanced from {old_current_frame} to '
+                f'{self._current_frame} (loop completed: '
+                f'{self._current_frame == 0})')
+
             # ループ完了時の特別なログ
-            # if self._current_frame == 0 and old_current_frame == self._frame_count - 1:
-            #     logger.info(f'*** LOOP COMPLETED *** for {self.filename} from frame {old_current_frame} to {self._current_frame}')
-            
+            # if (self._current_frame == 0 and
+            #     old_current_frame == self._frame_count - 1):
+            #     logger.info(
+            #         f'*** LOOP COMPLETED *** for {self.filename} '
+            #         f'from frame {old_current_frame} to '
+            #         f'{self._current_frame}')
+
             # 次のフレームの遅延時間を取得
-            delay_per_frame = self._delays[self._current_frame] if self._current_frame < len(self._delays) else 100
-        
+            delay_per_frame = (
+                self._delays[self._current_frame]
+                if self._current_frame < len(self._delays) else 100)
+
         if frames_advanced > 0:
-            logger.debug(f'Advanced {frames_advanced} frame(s) from {old_frame} to {self._current_frame} for {self} (timer: {self.frame_timer:.2f}ms left)')
-            
+            logger.debug(
+                f'Advanced {frames_advanced} frame(s) from {old_frame} '
+                f'to {self._current_frame} for {self} '
+                f'(timer: {self.frame_timer:.2f}ms left)')
+
             # 重要：フレーム切り替え時は必ず更新を要求
             self.update()
-            logger.debug(f'Called update() after frame advance to {self._current_frame}')
+            logger.debug(
+                f'Called update() after frame advance to '
+                f'{self._current_frame}')
             return True
-        
+
         return False
-    
+
     def bounding_rect_unselected(self):
         pm = self.pixmap()
         if self.crop_mode:
             rect = QtCore.QRectF(pm.rect())
-            logger.debug(f'bounding_rect_unselected (crop_mode): frame={self._current_frame}, pixmap_null={pm.isNull()}, rect={rect}')
+            logger.debug(
+                f'bounding_rect_unselected (crop_mode): '
+                f'frame={self._current_frame}, pixmap_null={pm.isNull()}, '
+                f'rect={rect}')
             return rect
         else:
-            logger.debug(f'bounding_rect_unselected (normal): frame={self._current_frame}, pixmap_null={pm.isNull()}, crop={self.crop}')
+            logger.debug(
+                f'bounding_rect_unselected (normal): '
+                f'frame={self._current_frame}, pixmap_null={pm.isNull()}, '
+                f'crop={self.crop}')
             return self.crop
-    
+
     @property
     def crop(self):
         return self._crop
-    
+
     @crop.setter
     def crop(self, value):
         logger.debug(f'Setting crop for {self} to {value}')
         self.prepareGeometryChange()
         self._crop = value
         self.update()
-    
+
     @property
     def grayscale(self):
         return self._grayscale
-    
+
     @grayscale.setter
     def grayscale(self, value):
         logger.debug(f'Setting grayscale for {self} to {value}')
@@ -1141,59 +1226,72 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         # グレースケール変更時はキャッシュをクリア
         self._frame_cache.clear()
         self.update()
-    
+
     def reset_crop(self):
         """クロップ領域をリセット"""
         pm = self.pixmap()
         if not pm.isNull():
             size = pm.size()
-            self.crop = QtCore.QRectF(0, 0, size.width(), size.height())
-    
+            self.crop = QtCore.QRectF(
+                0, 0, size.width(), size.height())
+
     def paint(self, painter, option, widget):
         """描画メソッド"""
-        logger.debug(f'paint() called for frame {self._current_frame} of {self.filename}')
-        
+        logger.debug(
+            f'paint() called for frame {self._current_frame} '
+            f'of {self.filename}')
+
         if abs(painter.combinedTransform().m11()) < 2:
             painter.setRenderHint(painter.RenderHint.SmoothPixmapTransform)
-        
+
         pm = self.pixmap()
         if pm.isNull():
-            logger.error(f'paint(): pixmap is null for frame {self._current_frame} of {self.filename} - ITEM WILL NOT BE VISIBLE')
+            logger.error(
+                f'paint(): pixmap is null for frame {self._current_frame} '
+                f'of {self.filename} - ITEM WILL NOT BE VISIBLE')
             return
-        
-        logger.debug(f'paint(): pixmap valid, size={pm.size()}, crop={self.crop}, crop_mode={self.crop_mode}')
-        
+
+        logger.debug(
+            f'paint(): pixmap valid, size={pm.size()}, '
+            f'crop={self.crop}, crop_mode={self.crop_mode}')
+
         # グレースケール処理
         if self._grayscale:
             # 簡単なグレースケール変換
-            img = pm.toImage().convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
+            img = pm.toImage().convertToFormat(
+                QtGui.QImage.Format.Format_Grayscale8)
             pm = QtGui.QPixmap.fromImage(img)
-            logger.debug(f'paint(): applied grayscale conversion')
-        
+            logger.debug('paint(): applied grayscale conversion')
+
         if self.crop_mode:
             # クロップモードでは全体を表示
             painter.drawPixmap(0, 0, pm)
-            logger.debug(f'paint(): drew pixmap in crop mode at (0,0)')
+            logger.debug('paint(): drew pixmap in crop mode at (0,0)')
         else:
             # 通常モードではクロップ領域のみ表示
             painter.drawPixmap(self.crop, pm, self.crop)
             logger.debug(f'paint(): drew pixmap with crop {self.crop}')
             self.paint_selectable(painter, option, widget)
-        
-        logger.debug(f'paint() completed successfully for frame {self._current_frame}')
-    
+
+        logger.debug(
+            f'paint() completed successfully for frame '
+            f'{self._current_frame}')
+
     def itemChange(self, change, value):
         """アイテム状態変更時の処理"""
         if change == self.GraphicsItemChange.ItemSceneHasChanged:
             if value:  # シーンに追加された
-                logger.debug(f'Item added to scene, starting animation for {self}')
+                logger.debug(
+                    f'Item added to scene, starting animation for {self}')
                 self.start_animation()
             else:  # シーンから削除された
-                logger.debug(f'Item removed from scene, stopping animation for {self}')
+                logger.debug(
+                    f'Item removed from scene, stopping animation '
+                    f'for {self}')
                 self.stop_animation()
-        
+
         return super().itemChange(change, value)
-    
+
     def get_extra_save_data(self):
         """保存用の追加データ"""
         return {
@@ -1206,10 +1304,11 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
                      self.crop.width(),
                      self.crop.height()]
         }
-    
+
     def create_copy(self):
         """アイテムのコピーを作成"""
-        item = BeeAnimatedDataItem(self._animation_data, self.filename)
+        item = BeeAnimatedDataItem(
+            self._animation_data, self.filename)
         item.setPos(self.pos())
         item.setZValue(self.zValue())
         item.setScale(self.scale())
@@ -1221,16 +1320,17 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         item.crop = self.crop
         item._current_frame = self._current_frame
         return item
-    
+
     def copy_to_clipboard(self, clipboard):
         """現在のフレームをクリップボードにコピー"""
         clipboard.setPixmap(self.pixmap())
-    
-    def pixmap_to_bytes(self, apply_grayscale=False, apply_crop=False):
+
+    def pixmap_to_bytes(self, apply_grayscale=False,
+                        apply_crop=False):
         """元のアニメーションデータを返す（保存用）"""
         # 元データをそのまま返すことでメモリ効率を保つ
         return (self._animation_data, 'gif')  # 元の形式を保持
-    
+
     def pixmap_from_bytes(self, data):
         """バイト列からアニメーションデータを復元"""
         try:
@@ -1238,21 +1338,23 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             self._frame_cache.clear()
             self._initialize_reader()
             self.reset_crop()
-            logger.debug(f'Restored animated data item with {self._frame_count} frames')
+            logger.debug(
+                f'Restored animated data item with '
+                f'{self._frame_count} frames')
         except Exception as e:
             logger.error(f'Failed to restore animated data item: {e}')
-    
+
     def get_filename_for_export(self, imgformat, save_id_default=None):
         """エクスポート用のファイル名を生成"""
         save_id = self.save_id or save_id_default
         assert save_id is not None
-        
+
         if self.filename:
             basename = os.path.splitext(os.path.basename(self.filename))[0]
             return f'{save_id:04}-{basename}.{imgformat}'
         else:
             return f'{save_id:04}.{imgformat}'
-    
+
     def get_imgformat(self, img=None):
         """画像保存形式を決定"""
         # 元データの形式を保持
@@ -1265,14 +1367,15 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
     def to_animated_gif_bytes(self, apply_crop=False):
         """アニメーションGIF形式でバイトデータを返す（元データ利用）"""
         try:
-            if apply_crop and hasattr(self, 'crop') and self.crop != self.bounding_rect_unselected():
+            if (apply_crop and hasattr(self, 'crop') and
+                    self.crop != self.bounding_rect_unselected()):
                 # クロップが適用されている場合は再生成が必要
                 return self._generate_cropped_animation('gif')
-            
+
             # 元データがGIFの場合はそのまま返す
             if self.get_imgformat() == 'gif':
                 return (self._animation_data, 'gif')
-            
+
             # 他の形式の場合は変換
             return self._convert_animation_format('gif')
         except Exception as e:
@@ -1282,33 +1385,38 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
     def to_animated_webp_bytes(self, apply_crop=False):
         """アニメーションWebP形式でバイトデータを返す（元データ利用）"""
         try:
-            if apply_crop and hasattr(self, 'crop') and self.crop != self.bounding_rect_unselected():
+            if (apply_crop and hasattr(self, 'crop') and
+                    self.crop != self.bounding_rect_unselected()):
                 # クロップが適用されている場合は再生成が必要
                 return self._generate_cropped_animation('webp')
-            
+
             # 元データがWebPの場合はそのまま返す
             if self.get_imgformat() == 'webp':
                 return (self._animation_data, 'webp')
-            
+
             # 他の形式の場合は変換
             return self._convert_animation_format('webp')
         except Exception as e:
-            logger.error(f"Failed to export animated WebP for {self}: {e}")
+            logger.error(
+                f"Failed to export animated WebP for {self}: {e}")
             return (None, 'webp')
 
     def to_same_as_source_bytes(self, apply_crop=False):
         """元の形式でバイトデータを返す（Same as Source機能）"""
         try:
             original_format = self.get_imgformat()
-            
-            if apply_crop and hasattr(self, 'crop') and self.crop != self.bounding_rect_unselected():
+
+            if (apply_crop and hasattr(self, 'crop') and
+                    self.crop != self.bounding_rect_unselected()):
                 # クロップが適用されている場合は再生成が必要
                 return self._generate_cropped_animation(original_format)
-            
+
             # 元データをそのまま返す（最高品質）
-            logger.debug(f"Exporting {self.filename} in original format: {original_format}")
+            logger.debug(
+                f"Exporting {self.filename} in original format: "
+                f"{original_format}")
             return (self._animation_data, original_format)
-            
+
         except Exception as e:
             logger.error(f"Failed to export same as source for {self}: {e}")
             # フォールバック: 安全なデフォルト処理
@@ -1320,7 +1428,8 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
                 else:
                     return self.to_animated_gif_bytes(apply_crop)
             except Exception as fallback_error:
-                logger.error(f"Fallback also failed for {self}: {fallback_error}")
+                logger.error(
+                    f"Fallback also failed for {self}: {fallback_error}")
                 # 最終フォールバック: GIFとして処理
                 return self.to_animated_gif_bytes(apply_crop)
 
@@ -1330,21 +1439,21 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             from PIL import Image
             import io
             import tempfile
-            
+
             # 一時ファイルとして保存してPillowで読み込み
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file.write(self._animation_data)
                 tmp_file.flush()
-                
+
                 with Image.open(tmp_file.name) as pil_img:
                     frames = []
                     durations = []
-                    
+
                     for frame_idx in range(getattr(pil_img, 'n_frames', 1)):
                         pil_img.seek(frame_idx)
                         frames.append(pil_img.copy())
                         durations.append(pil_img.info.get('duration', 100))
-                    
+
                     output = io.BytesIO()
                     if target_format == 'webp':
                         frames[0].save(
@@ -1364,11 +1473,12 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
                             duration=durations,
                             loop=0
                         )
-                    
+
                     return (output.getvalue(), target_format)
-                    
+
         except Exception as e:
-            logger.error(f"Failed to convert animation format to {target_format}: {e}")
+            logger.error(
+                f"Failed to convert animation format to {target_format}: {e}")
             return (None, target_format)
 
     def _generate_cropped_animation(self, target_format):
@@ -1376,29 +1486,31 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         try:
             from PIL import Image
             import io
-            
+
             frames = []
             durations = []
-            
+
             for i in range(self._frame_count):
                 pixmap = self.get_frame_pixmap(i)
                 if pixmap and not pixmap.isNull():
                     # クロップ適用
                     cropped_pixmap = pixmap.copy(self.crop.toRect())
-                    
+
                     # QPixmapからPIL Imageに変換
                     qimage = cropped_pixmap.toImage()
                     buffer = QtCore.QBuffer()
                     buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
                     qimage.save(buffer, 'PNG')
-                    
+
                     pil_img = Image.open(io.BytesIO(buffer.data()))
                     frames.append(pil_img)
-                    durations.append(int(1000 / self._fps) if hasattr(self, '_fps') else 100)
-            
+                    durations.append(
+                        int(1000 / self._fps) if hasattr(self, '_fps')
+                        else 100)
+
             if not frames:
                 return (None, target_format)
-            
+
             output = io.BytesIO()
             if target_format == 'webp':
                 frames[0].save(
@@ -1418,13 +1530,13 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
                     duration=durations,
                     loop=0
                 )
-            
+
             return (output.getvalue(), target_format)
-            
+
         except Exception as e:
             logger.error(f"Failed to generate cropped animation: {e}")
             return (None, target_format)
-    
+
     def __del__(self):
         """デストラクタ - リソースのクリーンアップ"""
         try:

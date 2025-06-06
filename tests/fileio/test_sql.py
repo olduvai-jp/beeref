@@ -675,4 +675,3 @@ def test_sqliteio_read_raises_error_when_file_empty(view, tmpfile):
 
     # should not create a file on reading!
     assert os.path.isfile(tmpfile) is False
-

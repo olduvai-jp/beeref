@@ -19,7 +19,7 @@ import tempfile
 from urllib.error import URLError
 from urllib import parse, request
 
-from PyQt6 import QtGui, QtCore
+from PyQt6 import QtGui
 
 import exif
 from lxml import etree
@@ -85,7 +85,7 @@ def is_animated_image(path):
     """アニメーション画像かどうか判定する"""
     if not os.path.isfile(path):
         return False
-    
+
     try:
         reader = QtGui.QImageReader(path)
         return reader.supportsAnimation() and reader.imageCount() > 1
@@ -99,14 +99,16 @@ def load_animated_data(path):
     try:
         with open(path, 'rb') as f:
             file_data = f.read()
-        
+
         # フレーム数とフォーマットの確認
         reader = QtGui.QImageReader(path)
         if not reader.supportsAnimation() or reader.imageCount() <= 1:
             logger.warning(f'File is not a valid animation: {path}')
             return None
-            
-        logger.debug(f'Loaded animation data for {path} ({len(file_data)} bytes, {reader.imageCount()} frames)')
+
+        logger.debug(
+            f'Loaded animation data for {path} ({len(file_data)} bytes, '
+            f'{reader.imageCount()} frames)')
         return {
             'type': 'animated_data',
             'file_data': file_data,
@@ -117,7 +119,6 @@ def load_animated_data(path):
         return None
 
 
-
 def load_image(path):
     if isinstance(path, str):
         path = os.path.normpath(path)
@@ -126,9 +127,11 @@ def load_image(path):
             animated_data = load_animated_data(path)
             if animated_data:
                 return (animated_data, path)
-            
+
             # アニメーション読み込みに失敗した場合は静止画として処理
-            logger.warning(f'Failed to load as animation, fallback to static image: {path}')
+            logger.warning(
+                f'Failed to load as animation, fallback to static image: '
+                f'{path}')
         return (exif_rotated_image(path), path)
     if path.isLocalFile():
         path = os.path.normpath(path.toLocalFile())

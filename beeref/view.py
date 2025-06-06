@@ -27,7 +27,9 @@ from beeref.config import CommandlineArgs, BeeSettings, KeyboardSettings
 from beeref import constants
 from beeref import fileio
 from beeref.fileio.errors import IMG_LOADING_ERROR_MSG
-from beeref.fileio.export import exporter_registry, ImagesToDirectoryExporter, SelectedImagesToDirectoryExporter
+from beeref.fileio.export import (
+    exporter_registry, ImagesToDirectoryExporter,
+    SelectedImagesToDirectoryExporter)
 from beeref import widgets
 from beeref.items import BeePixmapItem, BeeTextItem
 from beeref.main_controls import MainControlsMixin
@@ -563,14 +565,14 @@ class BeeGraphicsView(MainControlsMixin,
         image_items = [item for item in selected_items
                        if hasattr(item, 'TYPE') and
                        item.TYPE == 'pixmap']
-        
+
         if not image_items:
             QtWidgets.QMessageBox.information(
                 self,
                 'No Images Selected',
                 'Please select one or more image items to export.')
             return
-        
+
         directory = os.path.dirname(self.filename) if self.filename else None
         directory = QtWidgets.QFileDialog.getExistingDirectory(
             parent=self,
@@ -581,21 +583,23 @@ class BeeGraphicsView(MainControlsMixin,
             return
 
         logger.debug(f'Got export directory {directory}')
-        self.exporter = SelectedImagesToDirectoryExporter(self.scene, directory)
-        
+        self.exporter = SelectedImagesToDirectoryExporter(
+            self.scene, directory)
+
         if not self.exporter.items:
             QtWidgets.QMessageBox.information(
                 self,
                 'No Images to Export',
                 'No image items are currently selected.')
             return
-        
+
         self.worker = fileio.ThreadedIO(self.exporter.export)
         self.worker.user_input_required.connect(
             self.on_export_images_file_exists)
         self.worker.finished.connect(self.on_export_finished)
         self.progress = widgets.BeeProgressDialog(
-            f'Exporting {len(self.exporter.items)} selected images to {directory}',
+            f'Exporting {len(self.exporter.items)} selected images '
+            f'to {directory}',
             worker=self.worker,
             parent=self)
         self.worker.start()
@@ -767,10 +771,11 @@ class BeeGraphicsView(MainControlsMixin,
                 return
             logger.debug('Currently selected items: %s',
                          len(self.scene.selectedItems(user_only=True)))
-            self.actiongroup_set_enabled('active_when_selection',
-                                         self.scene.has_selection())
-            self.actiongroup_set_enabled('active_when_single_image',
-                                         self.scene.has_single_image_selection())
+            self.actiongroup_set_enabled(
+                'active_when_selection', self.scene.has_selection())
+            self.actiongroup_set_enabled(
+                'active_when_single_image',
+                self.scene.has_single_image_selection())
         except RuntimeError:
             # Scene has been deleted by Qt, ignore the call
             return

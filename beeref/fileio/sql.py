@@ -231,19 +231,21 @@ class SQLiteIO:
                     # バイト列からアニメーションデータを復元
                     item = BeeAnimatedDataItem(b'')  # 一時的に空データで初期化
                     item.pixmap_from_bytes(row[9])
-                    
+
                     # フレーム情報が正常に復元されたかチェック
-                    if not hasattr(item, '_frame_count') or item._frame_count <= 0:
+                    if (not hasattr(item, '_frame_count') or
+                            item._frame_count <= 0):
                         data['data']['text'] = (
-                            f'Animated image could not be loaded: {item.filename}\n'
-                            + IMG_LOADING_ERROR_MSG)
+                            f'Animated image could not be loaded: '
+                            f'{item.filename}\n' + IMG_LOADING_ERROR_MSG)
                         data['type'] = BeeErrorItem.TYPE
                         item = BeeErrorItem(**data['data'])
                     data['item'] = item
                 except Exception as e:
                     logger.error(f'Failed to restore animated data item: {e}')
                     data['data']['text'] = (
-                        f'Animated image could not be loaded: {data["data"].get("filename", "Unknown")}\n'
+                        f'Animated image could not be loaded: '
+                        f'{data["data"].get("filename", "Unknown")}\n'
                         + IMG_LOADING_ERROR_MSG)
                     data['type'] = BeeErrorItem.TYPE
                     item = BeeErrorItem(**data['data'])

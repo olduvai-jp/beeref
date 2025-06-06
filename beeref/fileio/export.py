@@ -288,7 +288,8 @@ class ImagesToDirectoryExporter(ExporterBase):
         self.scene = scene
         self.dirname = dirname
         self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
-        self.items.extend(list(self.scene.items_by_type(BeeAnimatedDataItem.TYPE)))
+        self.items.extend(
+            list(self.scene.items_by_type(BeeAnimatedDataItem.TYPE)))
         self.max_save_id = 0
         for item in self.items:
             if item.save_id:
@@ -303,7 +304,8 @@ class ImagesToDirectoryExporter(ExporterBase):
 
         # 設定値から動画形式を取得
         settings = BeeSettings()
-        animation_format = settings.valueOrDefault('Items/animation_export_format')
+        animation_format = settings.valueOrDefault(
+            'Items/animation_export_format')
 
         self.emit_begin_processing(worker, self.num_total)
         self.emit_progress(worker, self.start_from)
@@ -319,14 +321,19 @@ class ImagesToDirectoryExporter(ExporterBase):
                 # 設定値に基づいてGIF/WebP形式を動的選択
                 if animation_format == 'same_as_source':
                     # Same as Source: BeeAnimatedDataItemの場合は元データを使用
-                    pixmap, imgformat = item.to_same_as_source_bytes(apply_crop=True)
+                    pixmap, imgformat = item.to_same_as_source_bytes(
+                        apply_crop=True)
                 elif animation_format == 'webp':
-                    pixmap, imgformat = item.to_animated_webp_bytes(apply_crop=True)
+                    pixmap, imgformat = item.to_animated_webp_bytes(
+                        apply_crop=True)
                 else:  # デフォルトまたは'gif'の場合
-                    pixmap, imgformat = item.to_animated_gif_bytes(apply_crop=True)
-                
-                if pixmap is None: # アニメーションフレームがない場合など
-                    logger.warning(f"Skipping export for {item} due to no animation frames or writer error.")
+                    pixmap, imgformat = item.to_animated_gif_bytes(
+                        apply_crop=True)
+
+                if pixmap is None:  # アニメーションフレームがない場合など
+                    logger.warning(
+                        f"Skipping export for {item} due to no animation "
+                        f"frames or writer error.")
                     self.emit_progress(worker, i)
                     continue
             else:
@@ -389,13 +396,15 @@ class SelectedImagesToDirectoryExporter(ImagesToDirectoryExporter):
         self.dirname = dirname
         # Get only selected image items
         selected_items = self.scene.selectedItems(user_only=True)
-        self.items = [item for item in selected_items
-                     if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedDataItem.TYPE)]
-        
+        self.items = [
+            item for item in selected_items
+            if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedDataItem.TYPE)
+        ]
+
         if not self.items:
             # No image items selected
             self.items = []
-        
+
         self.max_save_id = 0
         for item in self.items:
             if item.save_id:
@@ -403,4 +412,3 @@ class SelectedImagesToDirectoryExporter(ImagesToDirectoryExporter):
         self.num_total = len(self.items)
         self.start_from = 0
         self.handle_existing = None
-

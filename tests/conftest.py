@@ -103,7 +103,7 @@ def qapp():
     import os
     # テスト実行時はheadlessモードを強制
     os.environ['QT_QPA_PLATFORM'] = 'offscreen'
-    
+
     from beeref.__main__ import BeeRefApplication
     yield BeeRefApplication([])
 
@@ -112,29 +112,33 @@ def qapp():
 def mock_dialogs():
     """すべてのQtダイアログをモックして自動テストを可能にする"""
     from PyQt6 import QtWidgets
-    
+
     # QMessageBoxをモック
     with patch.object(QtWidgets.QMessageBox, 'question') as question_mock, \
          patch.object(QtWidgets.QMessageBox, 'warning') as warning_mock, \
          patch.object(QtWidgets.QMessageBox, 'information') as info_mock, \
          patch.object(QtWidgets.QMessageBox, 'about') as about_mock, \
-         patch.object(QtWidgets.QFileDialog, 'getOpenFileName') as open_file_mock, \
-         patch.object(QtWidgets.QFileDialog, 'getSaveFileName') as save_file_mock, \
-         patch.object(QtWidgets.QFileDialog, 'getOpenFileNames') as open_files_mock, \
-         patch.object(QtWidgets.QFileDialog, 'getExistingDirectory') as get_dir_mock:
-        
+         patch.object(QtWidgets.QFileDialog,
+                      'getOpenFileName') as open_file_mock, \
+         patch.object(QtWidgets.QFileDialog,
+                      'getSaveFileName') as save_file_mock, \
+         patch.object(QtWidgets.QFileDialog,
+                      'getOpenFileNames') as open_files_mock, \
+         patch.object(QtWidgets.QFileDialog,
+                      'getExistingDirectory') as get_dir_mock:
+
         # デフォルトの応答を設定
         question_mock.return_value = QtWidgets.QMessageBox.StandardButton.Yes
         warning_mock.return_value = QtWidgets.QMessageBox.StandardButton.Ok
         info_mock.return_value = QtWidgets.QMessageBox.StandardButton.Ok
         about_mock.return_value = None
-        
+
         # ファイルダイアログのデフォルト応答
         open_file_mock.return_value = ('', '')  # (filename, filter)
         save_file_mock.return_value = ('test.bee', 'BeeRef files (*.bee)')
         open_files_mock.return_value = ([], '')  # (filenames, filter)
         get_dir_mock.return_value = ''
-        
+
         yield {
             'question': question_mock,
             'warning': warning_mock,

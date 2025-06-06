@@ -184,9 +184,12 @@ class AnimationFormatWidget(RadioGroup):
                 'while GIF has wider compatibility.')
     KEY = 'Items/animation_export_format'
     OPTIONS = (
-        ('same_as_source', 'Same as Source', 'Export animations in their original format with no quality loss'),
-        ('gif', 'GIF', 'Export animations as GIF format (wider compatibility)'),
-        ('webp', 'WebP', 'Export animations as WebP format (better quality and compression)'))
+        ('same_as_source', 'Same as Source',
+         'Export animations in their original format with no quality loss'),
+        ('gif', 'GIF',
+         'Export animations as GIF format (wider compatibility)'),
+        ('webp', 'WebP',
+         'Export animations as WebP format (better quality and compression)'))
 
 
 class AnimationCacheSizeWidget(IntegerGroup):

@@ -170,19 +170,21 @@ def test_settings_recent_files_update_respects_max_num(settings):
 
 def test_animation_export_format_default(settings):
     """アニメーションエクスポート形式設定のデフォルト値テスト"""
-    assert settings.valueOrDefault('Items/animation_export_format') == 'same_as_source'
+    assert (settings.valueOrDefault('Items/animation_export_format') ==
+            'same_as_source')
 
 
 def test_animation_export_format_valid_values(settings):
     """アニメーションエクスポート形式設定の有効値テスト"""
     # Same as Source形式
     settings.setValue('Items/animation_export_format', 'same_as_source')
-    assert settings.valueOrDefault('Items/animation_export_format') == 'same_as_source'
-    
+    assert (settings.valueOrDefault('Items/animation_export_format') ==
+            'same_as_source')
+
     # GIF形式
     settings.setValue('Items/animation_export_format', 'gif')
     assert settings.valueOrDefault('Items/animation_export_format') == 'gif'
-    
+
     # WebP形式
     settings.setValue('Items/animation_export_format', 'webp')
     assert settings.valueOrDefault('Items/animation_export_format') == 'webp'
@@ -191,18 +193,19 @@ def test_animation_export_format_valid_values(settings):
 def test_animation_export_format_invalid_value_returns_default(settings):
     """アニメーションエクスポート形式設定の無効値でデフォルト値が返されることをテスト"""
     settings.setValue('Items/animation_export_format', 'invalid_format')
-    assert settings.valueOrDefault('Items/animation_export_format') == 'same_as_source'
+    assert (settings.valueOrDefault('Items/animation_export_format') ==
+            'same_as_source')
 
 
 def test_animation_export_format_value_changed(settings):
     """アニメーションエクスポート形式設定の変更検出テスト"""
     # デフォルト値では変更なし
     assert settings.value_changed('Items/animation_export_format') is False
-    
+
     # 値を変更
     settings.setValue('Items/animation_export_format', 'webp')
     assert settings.value_changed('Items/animation_export_format') is True
-    
+
     # デフォルト値に戻すと変更なしになる
     settings.setValue('Items/animation_export_format', 'same_as_source')
     assert settings.value_changed('Items/animation_export_format') is False
@@ -218,11 +221,11 @@ def test_animation_frame_cache_size_valid_range(settings):
     # 最小値
     settings.setValue('Items/animation_frame_cache_size', 1)
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 1
-    
+
     # 中間値
     settings.setValue('Items/animation_frame_cache_size', 25)
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 25
-    
+
     # 最大値
     settings.setValue('Items/animation_frame_cache_size', 50)
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 50
@@ -233,7 +236,7 @@ def test_animation_frame_cache_size_invalid_range_returns_default(settings):
     # 範囲外の値（小さすぎる）
     settings.setValue('Items/animation_frame_cache_size', 0)
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 10
-    
+
     # 範囲外の値（大きすぎる）
     settings.setValue('Items/animation_frame_cache_size', 51)
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 10
@@ -244,7 +247,7 @@ def test_animation_frame_cache_size_type_casting(settings):
     # 文字列から整数へ変換
     settings.setValue('Items/animation_frame_cache_size', '15')
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 15
-    
+
     # 無効な文字列の場合はデフォルト値
     settings.setValue('Items/animation_frame_cache_size', 'invalid')
     assert settings.valueOrDefault('Items/animation_frame_cache_size') == 10
@@ -261,20 +264,23 @@ def test_animation_settings_value_changed(settings):
 def test_same_as_source_export_format_setting(settings):
     """Same as Source エクスポート形式設定の詳細テスト"""
     # デフォルト値がsame_as_sourceであることを確認
-    assert settings.valueOrDefault('Items/animation_export_format') == 'same_as_source'
-    
+    assert (settings.valueOrDefault('Items/animation_export_format') ==
+            'same_as_source')
+
     # same_as_sourceが有効な値として認識されることを確認
     settings.setValue('Items/animation_export_format', 'same_as_source')
-    assert settings.valueOrDefault('Items/animation_export_format') == 'same_as_source'
-    
+    assert (settings.valueOrDefault('Items/animation_export_format') ==
+            'same_as_source')
+
     # 無効な値の場合はsame_as_sourceにフォールバックすることを確認
     settings.setValue('Items/animation_export_format', 'invalid')
-    assert settings.valueOrDefault('Items/animation_export_format') == 'same_as_source'
-    
+    assert (settings.valueOrDefault('Items/animation_export_format') ==
+            'same_as_source')
+
     # 他の有効な値も設定できることを確認
     settings.setValue('Items/animation_export_format', 'gif')
     assert settings.valueOrDefault('Items/animation_export_format') == 'gif'
-    
+
     settings.setValue('Items/animation_export_format', 'webp')
     assert settings.valueOrDefault('Items/animation_export_format') == 'webp'
 
@@ -283,14 +289,14 @@ def test_same_as_source_value_changed_detection(settings):
     """Same as Source設定の変更検出テスト"""
     # デフォルト値では変更なし
     assert settings.value_changed('Items/animation_export_format') is False
-    
+
     # 他の値に変更すると変更有り
     settings.setValue('Items/animation_export_format', 'gif')
     assert settings.value_changed('Items/animation_export_format') is True
-    
+
     settings.setValue('Items/animation_export_format', 'webp')
     assert settings.value_changed('Items/animation_export_format') is True
-    
+
     # デフォルト値（same_as_source）に戻すと変更なし
     settings.setValue('Items/animation_export_format', 'same_as_source')
     assert settings.value_changed('Items/animation_export_format') is False
