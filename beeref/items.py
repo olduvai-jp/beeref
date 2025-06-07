@@ -1784,6 +1784,17 @@ class BeeSequenceItem(BeeAnimationItemBase):
             f'Added frame {len(self._frame_data)-1} to {self.filename}: '
             f'{filename} ({duration}ms)')
 
+        # 最初のフレームが追加された時にクロップ領域を正しく設定
+        if self._frame_count == 1:
+            self.reset_crop()
+            logger.debug(f'Reset crop for first frame: {self.crop}')
+
+        # 複数フレームになったらアニメーションを自動開始
+        if self._frame_count > 1 and self.scene() and not self._animation_started:
+            self.start_animation()
+            logger.info(f'Auto-started animation for {self.filename} '
+                       f'(frame_count: {self._frame_count})')
+
     def remove_frame(self, index):
         """フレームを削除
 

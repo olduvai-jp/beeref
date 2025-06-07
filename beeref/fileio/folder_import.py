@@ -21,7 +21,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from beeref.fileio.image import load_image
 from beeref.fileio.sequence_detection import detect_image_sequences, get_sequence_info
 from beeref.fileio.animation_generator import create_animation_from_sequence
-from beeref.items import BeePixmapItem, BeeAnimatedDataItem
+from beeref.fileio.sequence_import import create_sequence_item_from_group
+from beeref.items import BeePixmapItem, BeeAnimatedDataItem, BeeSequenceItem
 
 logger = logging.getLogger(__name__)
 
@@ -228,28 +229,25 @@ class FolderImporter:
                 f"Processing sequence: {sequence_info['prefix']}*"
                 f"{sequence_info['suffix']}")
 
-            # アニメーションデータを生成
-            animation_data = create_animation_from_sequence(
-                image_paths,
-                self.options.animation_fps,
-                self.options.animation_format
-            )
+            # BeeSequenceItemを直接作成
+            fps = self.options.animation_fps or 12.0
+            sequence_item = create_sequence_item_from_group(sequence, fps)
 
-            if not animation_data:
-                logger.warning("Failed to create animation from sequence")
+            if not sequence_item:
+                logger.warning("Failed to create sequence item from group")
                 return None
 
-            # BeeAnimatedDataItem用のデータを準備
+            # BeeSequenceItem用のデータを準備
             item_data = {
-                'type': 'animated_data',
-                'data': animation_data,
+                'type': 'sequence',
+                'item': sequence_item,
                 'filename': (f"sequence_{sequence_info['prefix']}_"
                              f"{len(image_paths)}_frames"),
                 'pos': pos,
                 'sequence_info': sequence_info
             }
 
-            logger.debug("Created animation item data for sequence")
+            logger.debug("Created sequence item data for sequence")
             return item_data
 
         except Exception as e:

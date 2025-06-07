@@ -137,7 +137,21 @@ def load_folder_images(folder_path, pos, scene, worker):
             try:
                 worker.progress.emit(i)
 
-                if item_data['type'] == 'animated_data':
+                if item_data['type'] == 'sequence':
+                    # BeeSequenceItemを作成（既に作成済みのアイテムを使用）
+                    item = item_data['item']
+                    if item:
+                        item.set_pos_center(pos)
+                        scene.add_item_later(
+                            {'item': item, 'type': 'sequence'}, selected=True)
+                        items.append(item)
+                        logger.info(f"Added BeeSequenceItem: {item_data['filename']}")
+                    else:
+                        logger.warning(
+                            f"Invalid sequence item: {item_data['filename']}")
+                        errors.append(item_data['filename'])
+
+                elif item_data['type'] == 'animated_data':
                     # BeeAnimatedDataItemを作成
                     animation_data = item_data['data']
                     if animation_data and animation_data.get('file_data'):
