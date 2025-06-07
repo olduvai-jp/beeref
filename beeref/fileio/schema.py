@@ -1,4 +1,4 @@
-USER_VERSION = 2
+USER_VERSION = 3
 APPLICATION_ID = 2060242126
 
 
@@ -19,7 +19,7 @@ SCHEMA = [
     """
     CREATE TABLE sqlar (
         name TEXT PRIMARY KEY,
-        item_id INTEGER NOT NULL UNIQUE,
+        item_id INTEGER NOT NULL,
         mode INT,
         mtime INT default current_timestamp,
         sz INT,
@@ -37,5 +37,25 @@ MIGRATIONS = {
     2: [
         "ALTER TABLE items ADD COLUMN data JSON",
         "UPDATE items SET data = json_object('filename', filename)",
+    ],
+    3: [
+        # sqlarテーブルのUNIQUE制約を削除（複数フレーム対応）
+        """
+        CREATE TABLE sqlar_new (
+            name TEXT PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            mode INT,
+            mtime INT default current_timestamp,
+            sz INT,
+            data BLOB,
+            FOREIGN KEY (item_id)
+              REFERENCES items (id)
+                 ON DELETE CASCADE
+                 ON UPDATE NO ACTION
+        )
+        """,
+        "INSERT INTO sqlar_new SELECT * FROM sqlar",
+        "DROP TABLE sqlar",
+        "ALTER TABLE sqlar_new RENAME TO sqlar",
     ],
 }

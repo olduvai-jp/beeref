@@ -806,8 +806,291 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         clipboard.setText(self.toPlainText())
 
 
+class BeeAnimationItemBase(BeeItemMixin, QtWidgets.QGraphicsObject):
+    """アニメーション機能の基盤クラス（抽象クラス）
+    
+    BeeAnimatedDataItem と BeeSequenceItem の共通機能を提供
+    """
+    
+    CROP_HANDLE_SIZE = 15
+    
+    def __init__(self, filename=None, **kwargs):
+        super().__init__()
+        self.save_id = None
+        self.filename = filename
+        self.is_image = True
+        self.crop_mode = False
+        self.settings = BeeSettings()
+        
+        # アニメーション関連の共通プロパティ
+        self._frame_count = 1
+        self._current_frame = 0
+        self._animation_started = False
+        self.frame_timer = 0
+        
+        # 描画関連の共通プロパティ
+        self._grayscale = False
+        
+        # 初期化
+        self.init_selectable()
+        
+    # 抽象メソッド（サブクラスで実装必須）
+    def pixmap(self):
+        """現在のフレームのPixmapを返す（抽象メソッド）"""
+        raise NotImplementedError("Subclasses must implement pixmap()")
+        
+    def get_frame_pixmap(self, frame_index):
+        """指定されたフレームのQPixmapを取得（抽象メソッド）"""
+        raise NotImplementedError("Subclasses must implement get_frame_pixmap()")
+        
+    def _get_delays(self):
+        """フレーム遅延時間のリストを返す（抽象メソッド）"""
+        raise NotImplementedError("Subclasses must implement _get_delays()")
+    
+    # 共通のアニメーション制御メソッド
+    @property
+    def current_frame(self):
+        return self._current_frame
+
+    @current_frame.setter
+    def current_frame(self, value):
+        if 0 <= value < self._frame_count:
+            self._current_frame = value
+
+    def start_animation(self):
+        """アニメーション開始"""
+        logger.debug(
+            f'start_animation called for {self}, frames: {self._frame_count}, '
+            f'scene: {self.scene()}, started: {self._animation_started}')
+        if (self._frame_count > 1 and self.scene() and
+                not self._animation_started):
+            self._animation_started = True
+            logger.debug(f'Started animation for {self}')
+
+    def stop_animation(self):
+        """アニメーション停止"""
+        self._animation_started = False
+        logger.debug(f'Stopped animation for {self}')
+
+    def update_animation(self, elapsed_ms):
+        """シーンのタイマーから呼ばれるアニメーション更新"""
+        logger.debug(
+            f'update_animation called: elapsed_ms={elapsed_ms}, '
+            f'started={self._animation_started}, '
+            f'frame_count={self._frame_count}')
+
+        if not self._animation_started:
+            logger.debug(f'Animation not started for {self.filename}')
+            return False
+
+        if self._frame_count <= 1:
+            logger.debug(f'Single frame animation for {self.filename}')
+            return False
+
+        delays = self._get_delays()
+        if not delays:
+            logger.warning(f'No delays configured for {self.filename}')
+            return False
+
+        old_frame = self._current_frame
+        self.frame_timer += elapsed_ms
+        frames_advanced = 0
+
+        # 現在のフレームの遅延時間を取得
+        original_delay = (
+            delays[self._current_frame]
+            if self._current_frame < len(delays) else 100)
+        
+        # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
+        if original_delay <= 0 or original_delay == 100:
+            # デフォルトFPS設定から遅延時間を計算
+            default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
+            delay_per_frame = 1000 / default_fps
+            logger.debug(
+                f'Using default FPS: {default_fps} -> {delay_per_frame}ms delay '
+                f'(original delay was {original_delay}ms)')
+        else:
+            delay_per_frame = original_delay
+            logger.debug(f'Using original delay: {delay_per_frame}ms')
+        
+        logger.debug(
+            f'Current frame {self._current_frame}, '
+            f'delay={delay_per_frame}ms, '
+            f'frame_timer={self.frame_timer:.2f}ms')
+
+        if delay_per_frame <= 0:
+            logger.warning(
+                f"Delay per frame is {delay_per_frame} for {self}. "
+                f"Animation may not work correctly.")
+            return False
+
+        while (self.frame_timer >= delay_per_frame and
+               self._frame_count > 0):
+            self.frame_timer -= delay_per_frame
+            old_current_frame = self._current_frame
+            self._current_frame = (
+                (self._current_frame + 1) % self._frame_count)
+            frames_advanced += 1
+
+            logger.debug(
+                f'Frame advanced from {old_current_frame} to '
+                f'{self._current_frame} (loop completed: '
+                f'{self._current_frame == 0})')
+
+            # 次のフレームの遅延時間を取得
+            next_original_delay = (
+                delays[self._current_frame]
+                if self._current_frame < len(delays) else 100)
+            
+            # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
+            if next_original_delay <= 0 or next_original_delay == 100:
+                # デフォルトFPS設定から遅延時間を計算
+                default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
+                delay_per_frame = 1000 / default_fps
+            else:
+                delay_per_frame = next_original_delay
+
+        if frames_advanced > 0:
+            logger.debug(
+                f'Advanced {frames_advanced} frame(s) from {old_frame} '
+                f'to {self._current_frame} for {self} '
+                f'(timer: {self.frame_timer:.2f}ms left)')
+
+            # 重要：フレーム切り替え時は必ず更新を要求
+            self.update()
+            logger.debug(
+                f'Called update() after frame advance to '
+                f'{self._current_frame}')
+            return True
+
+        return False
+    
+    # 共通のクロップ・グレースケール管理
+    @property
+    def crop(self):
+        return self._crop
+
+    @crop.setter
+    def crop(self, value):
+        logger.debug(f'Setting crop for {self} to {value}')
+        self.prepareGeometryChange()
+        self._crop = value
+        self.update()
+
+    @property
+    def grayscale(self):
+        return self._grayscale
+
+    @grayscale.setter
+    def grayscale(self, value):
+        logger.debug(f'Setting grayscale for {self} to {value}')
+        self._grayscale = value
+        self.update()
+
+    def reset_crop(self):
+        """クロップ領域をリセット"""
+        pm = self.pixmap()
+        if not pm.isNull():
+            size = pm.size()
+            self.crop = QtCore.QRectF(
+                0, 0, size.width(), size.height())
+    
+    # 共通描画メソッド
+    def bounding_rect_unselected(self):
+        pm = self.pixmap()
+        if self.crop_mode:
+            rect = QtCore.QRectF(pm.rect())
+            logger.debug(
+                f'bounding_rect_unselected (crop_mode): '
+                f'frame={self._current_frame}, pixmap_null={pm.isNull()}, '
+                f'rect={rect}')
+            return rect
+        else:
+            logger.debug(
+                f'bounding_rect_unselected (normal): '
+                f'frame={self._current_frame}, pixmap_null={pm.isNull()}, '
+                f'crop={self.crop}')
+            return self.crop
+
+    def paint(self, painter, option, widget):
+        """描画メソッド（共通部分）"""
+        logger.debug(
+            f'paint() called for frame {self._current_frame} '
+            f'of {self.filename}')
+
+        if abs(painter.combinedTransform().m11()) < 2:
+            painter.setRenderHint(painter.RenderHint.SmoothPixmapTransform)
+
+        pm = self.pixmap()
+        if pm.isNull():
+            logger.error(
+                f'paint(): pixmap is null for frame {self._current_frame} '
+                f'of {self.filename} - ITEM WILL NOT BE VISIBLE')
+            return
+
+        logger.debug(
+            f'paint(): pixmap valid, size={pm.size()}, '
+            f'crop={self.crop}, crop_mode={self.crop_mode}')
+
+        # グレースケール処理
+        if self._grayscale:
+            # 簡単なグレースケール変換
+            img = pm.toImage().convertToFormat(
+                QtGui.QImage.Format.Format_Grayscale8)
+            pm = QtGui.QPixmap.fromImage(img)
+            logger.debug('paint(): applied grayscale conversion')
+
+        if self.crop_mode:
+            # クロップモードでは全体を表示
+            painter.drawPixmap(0, 0, pm)
+            logger.debug('paint(): drew pixmap in crop mode at (0,0)')
+        else:
+            # 通常モードではクロップ領域のみ表示
+            painter.drawPixmap(self.crop, pm, self.crop)
+            logger.debug(f'paint(): drew pixmap with crop {self.crop}')
+            self.paint_selectable(painter, option, widget)
+
+        logger.debug(
+            f'paint() completed successfully for frame '
+            f'{self._current_frame}')
+    
+    # 共通のアイテム管理
+    def itemChange(self, change, value):
+        """アイテム状態変更時の処理"""
+        if change == self.GraphicsItemChange.ItemSceneHasChanged:
+            if value:  # シーンに追加された
+                logger.debug(
+                    f'Item added to scene, starting animation for {self}')
+                self.start_animation()
+            else:  # シーンから削除された
+                logger.debug(
+                    f'Item removed from scene, stopping animation '
+                    f'for {self}')
+                self.stop_animation()
+
+        return super().itemChange(change, value)
+    
+    def copy_to_clipboard(self, clipboard):
+        """現在のフレームをクリップボードにコピー"""
+        clipboard.setPixmap(self.pixmap())
+    
+    # 保存関連の共通メソッド（テンプレートメソッド）
+    def get_extra_save_data(self):
+        """保存用の追加データ（基本部分）"""
+        return {
+            'filename': self.filename,
+            'opacity': self.opacity(),
+            'grayscale': self.grayscale,
+            'current_frame': self._current_frame,
+            'crop': [self.crop.topLeft().x(),
+                     self.crop.topLeft().y(),
+                     self.crop.width(),
+                     self.crop.height()]
+        }
+
+
 @register_item
-class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
+class BeeAnimatedDataItem(BeeAnimationItemBase):
     """元データ保持＋動的フレーム取得アプローチのアニメーション画像アイテム"""
 
     TYPE = 'animated_data'
@@ -819,32 +1102,20 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
             animation_file_data (bytes): 元のアニメーションファイルのバイナリデータ
             filename (str): ファイル名
         """
-        super().__init__()
-        self.save_id = None
-        self.filename = filename
-        self.is_image = True
-        self.crop_mode = False
-        self.settings = BeeSettings()
+        # 基盤クラスの初期化
+        super().__init__(filename=filename, **kwargs)
 
         # 元データを保持
         self._animation_data = animation_file_data
         self._image_reader = None
         self._frame_cache = {}  # フレーム番号 -> QPixmap のキャッシュ
-        self._frame_count = 0
-        self._current_frame = 0
         self._delays = []
 
         # QImageReaderを初期化してフレーム情報を取得
         self._initialize_reader()
 
-        # アニメーション制御
-        self._animation_started = False
-        self.frame_timer = 0
-
         # その他の初期化
         self.reset_crop()
-        self._grayscale = False
-        self.init_selectable()
 
         logger.debug(
             f'Initialized {self} with {self._frame_count} frames '
@@ -1080,251 +1351,29 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
 
         return FrameAccessor(self)
 
-    @property
-    def delays(self):
-        """フレーム遅延時間のリスト"""
+    # 基盤クラスの抽象メソッドを実装
+    def _get_delays(self):
+        """フレーム遅延時間のリストを返す"""
         return self._delays.copy()
 
     @property
-    def current_frame(self):
-        return self._current_frame
-
-    @current_frame.setter
-    def current_frame(self, value):
-        if 0 <= value < self._frame_count:
-            self._current_frame = value
-
-    def start_animation(self):
-        """アニメーション開始"""
-        logger.debug(
-            f'start_animation called for {self}, frames: {self._frame_count}, '
-            f'scene: {self.scene()}, started: {self._animation_started}')
-        if (self._frame_count > 1 and self.scene() and
-                not self._animation_started):
-            self._animation_started = True
-            logger.debug(f'Started animation for {self}')
-
-    def stop_animation(self):
-        """アニメーション停止"""
-        self._animation_started = False
-        logger.debug(f'Stopped animation for {self}')
-
-    def update_animation(self, elapsed_ms):
-        """シーンのタイマーから呼ばれるアニメーション更新"""
-        logger.debug(
-            f'update_animation called: elapsed_ms={elapsed_ms}, '
-            f'started={self._animation_started}, '
-            f'frame_count={self._frame_count}, delays={len(self._delays)}')
-
-        if not self._animation_started:
-            logger.debug(f'Animation not started for {self.filename}')
-            return False
-
-        if self._frame_count <= 1:
-            logger.debug(f'Single frame animation for {self.filename}')
-            return False
-
-        if not self._delays:
-            logger.warning(f'No delays configured for {self.filename}')
-            return False
-
-        old_frame = self._current_frame
-        self.frame_timer += elapsed_ms
-        frames_advanced = 0
-
-        # 現在のフレームの遅延時間を取得
-        original_delay = (
-            self._delays[self._current_frame]
-            if self._current_frame < len(self._delays) else 100)
-        
-        # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
-        if original_delay <= 0 or original_delay == 100:
-            # デフォルトFPS設定から遅延時間を計算
-            default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
-            delay_per_frame = 1000 / default_fps
-            logger.debug(
-                f'Using default FPS: {default_fps} -> {delay_per_frame}ms delay '
-                f'(original delay was {original_delay}ms)')
-        else:
-            delay_per_frame = original_delay
-            logger.debug(f'Using original delay: {delay_per_frame}ms')
-        
-        logger.debug(
-            f'Current frame {self._current_frame}, '
-            f'delay={delay_per_frame}ms, '
-            f'frame_timer={self.frame_timer:.2f}ms')
-
-        if delay_per_frame <= 0:
-            logger.warning(
-                f"Delay per frame is {delay_per_frame} for {self}. "
-                f"Animation may not work correctly.")
-            return False
-
-        while (self.frame_timer >= delay_per_frame and
-               self._frame_count > 0):
-            self.frame_timer -= delay_per_frame
-            old_current_frame = self._current_frame
-            self._current_frame = (
-                (self._current_frame + 1) % self._frame_count)
-            frames_advanced += 1
-
-            logger.debug(
-                f'Frame advanced from {old_current_frame} to '
-                f'{self._current_frame} (loop completed: '
-                f'{self._current_frame == 0})')
-
-            # ループ完了時の特別なログ
-            # if (self._current_frame == 0 and
-            #     old_current_frame == self._frame_count - 1):
-            #     logger.info(
-            #         f'*** LOOP COMPLETED *** for {self.filename} '
-            #         f'from frame {old_current_frame} to '
-            #         f'{self._current_frame}')
-
-            # 次のフレームの遅延時間を取得
-            next_original_delay = (
-                self._delays[self._current_frame]
-                if self._current_frame < len(self._delays) else 100)
-            
-            # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
-            if next_original_delay <= 0 or next_original_delay == 100:
-                # デフォルトFPS設定から遅延時間を計算
-                default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
-                delay_per_frame = 1000 / default_fps
-            else:
-                delay_per_frame = next_original_delay
-
-        if frames_advanced > 0:
-            logger.debug(
-                f'Advanced {frames_advanced} frame(s) from {old_frame} '
-                f'to {self._current_frame} for {self} '
-                f'(timer: {self.frame_timer:.2f}ms left)')
-
-            # 重要：フレーム切り替え時は必ず更新を要求
-            self.update()
-            logger.debug(
-                f'Called update() after frame advance to '
-                f'{self._current_frame}')
-            return True
-
-        return False
-
-    def bounding_rect_unselected(self):
-        pm = self.pixmap()
-        if self.crop_mode:
-            rect = QtCore.QRectF(pm.rect())
-            logger.debug(
-                f'bounding_rect_unselected (crop_mode): '
-                f'frame={self._current_frame}, pixmap_null={pm.isNull()}, '
-                f'rect={rect}')
-            return rect
-        else:
-            logger.debug(
-                f'bounding_rect_unselected (normal): '
-                f'frame={self._current_frame}, pixmap_null={pm.isNull()}, '
-                f'crop={self.crop}')
-            return self.crop
-
-    @property
-    def crop(self):
-        return self._crop
-
-    @crop.setter
-    def crop(self, value):
-        logger.debug(f'Setting crop for {self} to {value}')
-        self.prepareGeometryChange()
-        self._crop = value
-        self.update()
+    def delays(self):
+        """フレーム遅延時間のリスト（互換性のため）"""
+        return self._get_delays()
 
     @property
     def grayscale(self):
+        """グレースケール設定の取得"""
         return self._grayscale
 
     @grayscale.setter
     def grayscale(self, value):
+        """グレースケール設定（キャッシュクリア付き）"""
         logger.debug(f'Setting grayscale for {self} to {value}')
         self._grayscale = value
         # グレースケール変更時はキャッシュをクリア
         self._frame_cache.clear()
         self.update()
-
-    def reset_crop(self):
-        """クロップ領域をリセット"""
-        pm = self.pixmap()
-        if not pm.isNull():
-            size = pm.size()
-            self.crop = QtCore.QRectF(
-                0, 0, size.width(), size.height())
-
-    def paint(self, painter, option, widget):
-        """描画メソッド"""
-        logger.debug(
-            f'paint() called for frame {self._current_frame} '
-            f'of {self.filename}')
-
-        if abs(painter.combinedTransform().m11()) < 2:
-            painter.setRenderHint(painter.RenderHint.SmoothPixmapTransform)
-
-        pm = self.pixmap()
-        if pm.isNull():
-            logger.error(
-                f'paint(): pixmap is null for frame {self._current_frame} '
-                f'of {self.filename} - ITEM WILL NOT BE VISIBLE')
-            return
-
-        logger.debug(
-            f'paint(): pixmap valid, size={pm.size()}, '
-            f'crop={self.crop}, crop_mode={self.crop_mode}')
-
-        # グレースケール処理
-        if self._grayscale:
-            # 簡単なグレースケール変換
-            img = pm.toImage().convertToFormat(
-                QtGui.QImage.Format.Format_Grayscale8)
-            pm = QtGui.QPixmap.fromImage(img)
-            logger.debug('paint(): applied grayscale conversion')
-
-        if self.crop_mode:
-            # クロップモードでは全体を表示
-            painter.drawPixmap(0, 0, pm)
-            logger.debug('paint(): drew pixmap in crop mode at (0,0)')
-        else:
-            # 通常モードではクロップ領域のみ表示
-            painter.drawPixmap(self.crop, pm, self.crop)
-            logger.debug(f'paint(): drew pixmap with crop {self.crop}')
-            self.paint_selectable(painter, option, widget)
-
-        logger.debug(
-            f'paint() completed successfully for frame '
-            f'{self._current_frame}')
-
-    def itemChange(self, change, value):
-        """アイテム状態変更時の処理"""
-        if change == self.GraphicsItemChange.ItemSceneHasChanged:
-            if value:  # シーンに追加された
-                logger.debug(
-                    f'Item added to scene, starting animation for {self}')
-                self.start_animation()
-            else:  # シーンから削除された
-                logger.debug(
-                    f'Item removed from scene, stopping animation '
-                    f'for {self}')
-                self.stop_animation()
-
-        return super().itemChange(change, value)
-
-    def get_extra_save_data(self):
-        """保存用の追加データ"""
-        return {
-            'filename': self.filename,
-            'opacity': self.opacity(),
-            'grayscale': self.grayscale,
-            'current_frame': self._current_frame,
-            'crop': [self.crop.topLeft().x(),
-                     self.crop.topLeft().y(),
-                     self.crop.width(),
-                     self.crop.height()]
-        }
 
     def create_copy(self):
         """アイテムのコピーを作成"""
@@ -1342,9 +1391,6 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         item._current_frame = self._current_frame
         return item
 
-    def copy_to_clipboard(self, clipboard):
-        """現在のフレームをクリップボードにコピー"""
-        clipboard.setPixmap(self.pixmap())
 
     def pixmap_to_bytes(self, apply_grayscale=False,
                         apply_crop=False):
@@ -1568,3 +1614,400 @@ class BeeAnimatedDataItem(BeeItemMixin, QtWidgets.QGraphicsObject):
         except (RuntimeError, AttributeError):
             # QBufferが既に削除されている場合は無視
             pass
+
+
+@register_item
+class BeeSequenceItem(BeeAnimationItemBase):
+    """連番画像クラス - 個別フレームとして管理されたアニメーション画像アイテム"""
+    
+    TYPE = 'sequence'
+    
+    def __init__(self, **kwargs):
+        """
+        連番画像アイテムの初期化
+        """
+        super().__init__(**kwargs)
+        
+        # フレームデータ管理
+        self._frame_data = []  # List[Dict] - フレーム情報
+        self._frame_metadata = {
+            'fps': 12,
+            'loop': True,
+            'source_directory': None,
+            'sequence_pattern': None
+        }
+        self._frame_cache = {}  # Dict[int, QPixmap] - フレームキャッシュ
+        
+        # 初期化
+        self.reset_crop()
+        
+        logger.debug(f'Initialized {self} with sequence management')
+    
+    def __str__(self):
+        frame_count = len(self._frame_data)
+        return (f'Sequence Item "{self.filename}" '
+                f'({frame_count} frames, {self._frame_metadata["fps"]} fps)')
+    
+    def pixmap(self):
+        """現在のフレームのPixmapを返す"""
+        return self.get_frame_pixmap(self._current_frame)
+    
+    def get_frame_pixmap(self, frame_index):
+        """指定されたフレームのQPixmapを取得（キャッシュ対応）"""
+        logger.debug(
+            f'get_frame_pixmap called: frame_index={frame_index}, '
+            f'current_frame={self._current_frame}, '
+            f'frame_count={len(self._frame_data)}')
+        
+        if frame_index < 0 or frame_index >= len(self._frame_data):
+            logger.warning(
+                f'Invalid frame_index {frame_index}, resetting to 0 '
+                f'(frame_count={len(self._frame_data)})')
+            frame_index = 0
+            
+        if not self._frame_data:
+            logger.warning(f'No frame data available for {self}')
+            return QtGui.QPixmap(100, 100)  # 空のPixmapを返す
+        
+        # キャッシュにあるかチェック
+        if frame_index in self._frame_cache:
+            pixmap = self._frame_cache[frame_index]
+            logger.debug(
+                f'Frame {frame_index} found in cache, pixmap '
+                f'null={pixmap.isNull()}, size={pixmap.size()}')
+            return pixmap
+        
+        logger.debug(
+            f'Frame {frame_index} not in cache, loading from frame data '
+            f'(cache keys: {list(self._frame_cache.keys())})')
+        
+        # キャッシュにない場合はフレームデータから生成
+        try:
+            frame_info = self._frame_data[frame_index]
+            
+            # データからPixmapを作成
+            if 'data' in frame_info and frame_info['data']:
+                # バイトデータから直接読み込み
+                pixmap = QtGui.QPixmap()
+                pixmap.loadFromData(frame_info['data'])
+                logger.debug(
+                    f'Loaded frame {frame_index} from data, '
+                    f'pixmap size: {pixmap.size()}')
+            else:
+                # エラー時は空のPixmapを作成
+                logger.error(
+                    f'No data available for frame {frame_index} '
+                    f'in {self.filename}')
+                pixmap = QtGui.QPixmap(100, 100)
+            
+            # LRUキャッシュの実装（最大10フレーム）
+            if len(self._frame_cache) >= 10:
+                # 現在表示中のフレームを削除しないよう改善
+                cache_keys = [
+                    k for k in self._frame_cache.keys()
+                    if k != self._current_frame]
+                if cache_keys:
+                    oldest_key = min(cache_keys)
+                    logger.debug(
+                        f'Cache full, removing oldest non-current frame '
+                        f'{oldest_key} (current: {self._current_frame})')
+                    del self._frame_cache[oldest_key]
+                else:
+                    # 現在のフレームしかない場合は最古のキャッシュを削除
+                    oldest_key = min(self._frame_cache.keys())
+                    logger.debug(
+                        f'Cache full, removing oldest frame {oldest_key} '
+                        f'(current: {self._current_frame})')
+                    del self._frame_cache[oldest_key]
+            
+            self._frame_cache[frame_index] = pixmap
+            logger.debug(
+                f'Cached frame {frame_index} for {self.filename} '
+                f'(cache size: {len(self._frame_cache)}, '
+                f'keys: {list(self._frame_cache.keys())})')
+            return pixmap
+            
+        except (IndexError, KeyError) as e:
+            logger.error(
+                f'Error accessing frame {frame_index} for {self.filename}: {e}')
+            return QtGui.QPixmap(100, 100)
+        except Exception as e:
+            logger.error(
+                f'Exception in get_frame_pixmap for frame {frame_index} '
+                f'of {self.filename}: {e}', exc_info=True)
+            return QtGui.QPixmap(100, 100)
+    
+    def _get_delays(self):
+        """フレーム遅延時間のリストを返す"""
+        delays = []
+        fps = self._frame_metadata.get('fps', 12)
+        default_duration = int(1000 / fps)  # ミリ秒
+        
+        for frame_info in self._frame_data:
+            duration = frame_info.get('duration', default_duration)
+            delays.append(duration)
+        
+        return delays
+    
+    def add_frame(self, pixmap, filename, duration=None):
+        """フレームを追加
+        
+        Args:
+            pixmap (QPixmap): フレームのPixmap
+            filename (str): 元ファイル名
+            duration (int, optional): フレーム表示時間（ミリ秒）
+        """
+        if duration is None:
+            fps = self._frame_metadata.get('fps', 12)
+            duration = int(1000 / fps)
+        
+        # Pixmapをバイト配列に変換
+        barray = QtCore.QByteArray()
+        buffer = QtCore.QBuffer(barray)
+        buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+        pixmap.save(buffer, 'PNG')
+        data = barray.data()
+        
+        frame_info = {
+            'filename': filename,
+            'sqlar_name': f'sequence_frame_{len(self._frame_data):04d}.png',
+            'duration': duration,
+            'size': (pixmap.width(), pixmap.height()),
+            'format': 'png',
+            'data': data
+        }
+        
+        self._frame_data.append(frame_info)
+        self._frame_count = len(self._frame_data)
+        
+        logger.debug(
+            f'Added frame {len(self._frame_data)-1} to {self.filename}: '
+            f'{filename} ({duration}ms)')
+    
+    def remove_frame(self, index):
+        """フレームを削除
+        
+        Args:
+            index (int): 削除するフレームのインデックス
+        """
+        if 0 <= index < len(self._frame_data):
+            removed_frame = self._frame_data.pop(index)
+            self._frame_count = len(self._frame_data)
+            
+            # キャッシュからも削除
+            if index in self._frame_cache:
+                del self._frame_cache[index]
+            
+            # インデックスが変更されたため、キャッシュを再構築
+            new_cache = {}
+            for cached_index, pixmap in self._frame_cache.items():
+                if cached_index > index:
+                    new_cache[cached_index - 1] = pixmap
+                elif cached_index < index:
+                    new_cache[cached_index] = pixmap
+            self._frame_cache = new_cache
+            
+            # 現在のフレーム位置を調整
+            if self._current_frame >= index and self._current_frame > 0:
+                self._current_frame -= 1
+            
+            logger.debug(
+                f'Removed frame {index} from {self.filename}: '
+                f'{removed_frame.get("filename", "unknown")}')
+        else:
+            logger.warning(
+                f'Invalid frame index {index} for removal '
+                f'(frame_count={len(self._frame_data)})')
+    
+    def get_frame_count(self):
+        """フレーム数を返す"""
+        return len(self._frame_data)
+    
+    def set_fps(self, fps):
+        """FPS設定
+        
+        Args:
+            fps (float): フレームレート
+        """
+        self._frame_metadata['fps'] = fps
+        
+        # 既存フレームの duration を更新
+        default_duration = int(1000 / fps)
+        for frame_info in self._frame_data:
+            if 'duration' not in frame_info or frame_info['duration'] <= 0:
+                frame_info['duration'] = default_duration
+        
+        logger.debug(f'Set FPS for {self.filename} to {fps}')
+    
+    def get_sorted_frames(self):
+        """ソートされたフレームリストを返す
+        
+        Returns:
+            List[Dict]: ソートされたフレーム情報のリスト
+        """
+        # ファイル名でソート（自然順序）
+        def natural_sort_key(frame_info):
+            import re
+            filename = frame_info.get('filename', '')
+            # 数字部分を抽出してソート用キーを作成
+            parts = re.split('([0-9]+)', filename)
+            return [int(part) if part.isdigit() else part.lower() for part in parts]
+        
+        sorted_frames = sorted(self._frame_data, key=natural_sort_key)
+        return sorted_frames
+    
+    def update_from_data(self, **kwargs):
+        """データ更新機能（オーバーライド）"""
+        super().update_from_data(**kwargs)
+        
+        # フレームメタデータの更新
+        if 'frame_metadata' in kwargs:
+            metadata = kwargs['frame_metadata']
+            self._frame_metadata.update(metadata)
+        
+        # フレームデータの更新
+        if 'frame_data' in kwargs:
+            self._frame_data = kwargs['frame_data']
+            self._frame_count = len(self._frame_data)
+            self._frame_cache.clear()  # キャッシュをクリア
+        
+        # FPS設定の更新
+        if 'fps' in kwargs:
+            self.set_fps(kwargs['fps'])
+        
+        logger.debug(f'Updated {self} from data')
+    
+    @classmethod
+    def create_from_data(cls, **kwargs):
+        """データからアイテムを作成"""
+        item = kwargs.pop('item')
+        data = kwargs.pop('data', {})
+        
+        # 基本的なプロパティを更新
+        if 'filename' in data:
+            item.filename = data['filename']
+        if 'crop' in data:
+            item.crop = QtCore.QRectF(*data['crop'])
+        item.setOpacity(data.get('opacity', 1))
+        item.grayscale = data.get('grayscale', False)
+        item._current_frame = data.get('current_frame', 0)
+        
+        # フレームデータとメタデータを更新
+        if 'frame_data' in data:
+            item._frame_data = data['frame_data']
+            item._frame_count = len(item._frame_data)
+        
+        if 'frame_metadata' in data:
+            item._frame_metadata.update(data['frame_metadata'])
+        
+        return item
+    
+    def get_extra_save_data(self):
+        """保存用の追加データ"""
+        base_data = super().get_extra_save_data()
+        
+        # フレームファイル名のリスト（順序付き）とメタデータを保存
+        # 実際のバイトデータはsqlarテーブルに保存される
+        frame_files = []
+        for frame_info in self._frame_data:
+            frame_files.append(frame_info.get('sqlar_name', 'unknown.png'))
+        
+        base_data.update({
+            'frame_files': frame_files,  # フレーム順序情報
+            'frame_metadata': self._frame_metadata,
+            'frame_count': len(self._frame_data),
+            'frame_duration': self._frame_metadata.get('fps', 12) and int(1000 / self._frame_metadata['fps']) or 83
+        })
+        
+        return base_data
+    
+    def create_copy(self):
+        """アイテムのコピーを作成"""
+        item = BeeSequenceItem()
+        item.filename = self.filename
+        item._frame_data = [frame.copy() for frame in self._frame_data]
+        item._frame_metadata = self._frame_metadata.copy()
+        item._frame_count = len(item._frame_data)
+        
+        # 位置・変形情報をコピー
+        item.setPos(self.pos())
+        item.setZValue(self.zValue())
+        item.setScale(self.scale())
+        item.setRotation(self.rotation())
+        item.setOpacity(self.opacity())
+        item.grayscale = self.grayscale
+        if self.flip() == -1:
+            item.do_flip()
+        item.crop = self.crop
+        item._current_frame = self._current_frame
+        
+        return item
+    
+    def pixmap_to_bytes(self, apply_grayscale=False, apply_crop=False):
+        """現在のフレームをバイト配列に変換"""
+        pixmap = self.pixmap()
+        
+        if apply_grayscale and self.grayscale:
+            img = pixmap.toImage().convertToFormat(
+                QtGui.QImage.Format.Format_Grayscale8)
+            pixmap = QtGui.QPixmap.fromImage(img)
+        
+        if apply_crop:
+            pixmap = pixmap.copy(self.crop.toRect())
+        
+        barray = QtCore.QByteArray()
+        buffer = QtCore.QBuffer(barray)
+        buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+        pixmap.save(buffer, 'PNG', quality=90)
+        
+        return (barray.data(), 'png')
+    
+    def get_filename_for_export(self, imgformat, save_id_default=None):
+        """エクスポート用のファイル名を生成"""
+        save_id = self.save_id or save_id_default
+        assert save_id is not None
+        
+        if self.filename:
+            basename = os.path.splitext(os.path.basename(self.filename))[0]
+            return f'{save_id:04}-{basename}_sequence.{imgformat}'
+        else:
+            return f'{save_id:04}_sequence.{imgformat}'
+    
+    def get_imgformat(self, img=None):
+        """画像保存形式を決定"""
+        # シーケンスアイテムはPNGで保存
+        return 'png'
+    
+    @property
+    def frames(self):
+        """互換性のためのプロパティ（全フレーム数を返すリスト的なオブジェクト）"""
+        class FrameAccessor:
+            def __init__(self, parent):
+                self.parent = parent
+
+            def __len__(self):
+                return self.parent.get_frame_count()
+
+            def __getitem__(self, index):
+                return self.parent.get_frame_pixmap(index)
+
+        return FrameAccessor(self)
+    
+    @property
+    def delays(self):
+        """フレーム遅延時間のリスト（互換性のため）"""
+        return self._get_delays()
+    
+    @property
+    def grayscale(self):
+        """グレースケール設定の取得"""
+        return getattr(self, '_grayscale', False)
+
+    @grayscale.setter
+    def grayscale(self, value):
+        """グレースケール設定（キャッシュクリア付き）"""
+        logger.debug(f'Setting grayscale for {self} to {value}')
+        self._grayscale = value
+        # グレースケール変更時はキャッシュをクリア
+        self._frame_cache.clear()
+        self.update()

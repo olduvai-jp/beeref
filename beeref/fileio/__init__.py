@@ -22,7 +22,14 @@ from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.sql import SQLiteIO, is_bee_file
 from beeref.fileio.folder_import import import_folder_images, FolderImportOptions
-from beeref.items import BeePixmapItem, BeeAnimatedDataItem
+from beeref.fileio.sequence_import import (
+    create_sequence_item_from_files,
+    create_sequence_item_from_group,
+    import_sequences_from_directory,
+    get_sequence_import_info,
+    validate_sequence_files
+)
+from beeref.items import BeePixmapItem, BeeAnimatedDataItem, BeeSequenceItem
 
 
 __all__ = [
@@ -32,6 +39,11 @@ __all__ = [
     'load_images',
     'ThreadedLoader',
     'BeeFileIOError',
+    'create_sequence_item_from_files',
+    'create_sequence_item_from_group',
+    'import_sequences_from_directory',
+    'get_sequence_import_info',
+    'validate_sequence_files',
 ]
 
 logger = logging.getLogger(__name__)

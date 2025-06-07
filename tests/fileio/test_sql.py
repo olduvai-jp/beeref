@@ -675,3 +675,295 @@ def test_sqliteio_read_raises_error_when_file_empty(view, tmpfile):
 
     # should not create a file on reading!
     assert os.path.isfile(tmpfile) is False
+
+
+class TestSQLiteIOSequenceItem:
+    """BeeSequenceItemのSQL関連テスト"""
+
+    def create_test_pixmap(self, width=10, height=10, color=QtCore.Qt.GlobalColor.red):
+        """テスト用のQPixmapを作成"""
+        pixmap = QtGui.QPixmap(width, height)
+        pixmap.fill(color)
+        return pixmap
+
+    def test_sqliteio_write_inserts_new_sequence_item(self, tmpfile, view):
+        """新しいBeeSequenceItemの保存テスト"""
+        from beeref.items import BeeSequenceItem
+        
+        item = BeeSequenceItem()
+        item.filename = 'test_sequence.png'
+        
+        # フレームを追加
+        for i in range(3):
+            pixmap = self.create_test_pixmap(color=[
+                QtCore.Qt.GlobalColor.red,
+                QtCore.Qt.GlobalColor.green,
+                QtCore.Qt.GlobalColor.blue
+            ][i])
+            item.add_frame(pixmap, f'frame_{i:03d}.png', 100)
+        
+        # 位置・変形設定
+        view.scene.addItem(item)
+        item.setScale(1.3)
+        item.setPos(44, 55)
+        item.setZValue(0.22)
+        item.setRotation(33)
+        item.setOpacity(0.8)
+        item.grayscale = True
+        item.crop = QtCore.QRectF(5, 5, 100, 80)
+        item._current_frame = 1
+
+        io = SQLiteIO(tmpfile, view.scene, create_new=True)
+        io.write()
+
+        assert item.save_id == 1
+        
+        # itemsテーブルの確認
+        result = io.fetchone(
+            'SELECT x, y, z, scale, rotation, flip, items.data, type '
+            'FROM items WHERE id = ?', (1,))
+        assert result[0] == 44.0
+        assert result[1] == 55.0
+        assert result[2] == 0.22
+        assert result[3] == 1.3
+        assert result[4] == 33
+        assert result[5] == 1
+        assert result[7] == 'sequence'
+        
+        data = json.loads(result[6])
+        assert data['filename'] == 'test_sequence.png'
+        assert data['opacity'] == 0.8
+        assert data['grayscale'] is True
+        assert data['current_frame'] == 1
+        assert data['crop'] == [5, 5, 100, 80]
+        assert data['frame_count'] == 3
+        assert len(data['frame_files']) == 3
+        assert 'frame_metadata' in data
+        
+        # sqlarテーブルの確認（フレームデータ）
+        sqlar_results = io.fetchall(
+            'SELECT name, data FROM sqlar WHERE item_id = ? ORDER BY name', (1,))
+        assert len(sqlar_results) == 3
+        
+        # フレームファイルが正しく保存されている
+        for i, (name, data) in enumerate(sqlar_results):
+            assert name == f'sequence_frame_{i:04d}.png'
+            assert isinstance(data, bytes)
+            assert len(data) > 0
+
+    def test_sqliteio_write_updates_existing_sequence_item(self, tmpfile, view):
+        """既存のBeeSequenceItemの更新テスト"""
+        from beeref.items import BeeSequenceItem
+        
+        item = BeeSequenceItem()
+        item.filename = 'original_sequence.png'
+        
+        # 最初のフレームを追加
+        pixmap = self.create_test_pixmap()
+        item.add_frame(pixmap, 'frame_001.png', 100)
+        
+        view.scene.addItem(item)
+        item.setScale(1.0)
+        item.setPos(10, 10)
+        item.save_id = 1
+        
+        io = SQLiteIO(tmpfile, view.scene, create_new=True)
+        io.write()
+        assert io.fetchone('SELECT COUNT(*) from items') == (1,)
+
+        # アイテムを更新
+        item.filename = 'updated_sequence.png'
+        item.setScale(2.0)
+        item.setPos(20, 30)
+        item.setOpacity(0.5)
+        item._current_frame = 0
+        
+        # 新しいフレームを追加
+        new_pixmap = self.create_test_pixmap(color=QtCore.Qt.GlobalColor.yellow)
+        item.add_frame(new_pixmap, 'frame_002.png', 120)
+        
+        io.create_new = False
+        io.write()
+
+        assert io.fetchone('SELECT COUNT(*) from items') == (1,)
+        result = io.fetchone(
+            'SELECT x, y, scale, items.data FROM items WHERE id = ?', (1,))
+        assert result[0] == 20
+        assert result[1] == 30
+        assert result[2] == 2.0
+        
+        data = json.loads(result[3])
+        assert data['filename'] == 'updated_sequence.png'
+        assert data['opacity'] == 0.5
+        assert data['frame_count'] == 2
+        
+        # sqlarテーブルの確認（フレーム数が増えている）
+        sqlar_count = io.fetchone('SELECT COUNT(*) FROM sqlar WHERE item_id = ?', (1,))
+        assert sqlar_count[0] == 2
+
+    def test_sqliteio_read_reads_readonly_sequence_item(self, tmpfile, view):
+        """BeeSequenceItemの読み込みテスト"""
+        from beeref.items import BeeSequenceItem
+        
+        io = SQLiteIO(tmpfile, view.scene, create_new=True)
+        io.create_schema_on_new()
+        
+        # テストデータを準備
+        frame_data = [
+            {'filename': 'frame_001.png', 'duration': 100, 'sqlar_name': 'sequence_frame_0000.png'},
+            {'filename': 'frame_002.png', 'duration': 120, 'sqlar_name': 'sequence_frame_0001.png'}
+        ]
+        
+        sequence_data = {
+            'filename': 'test_sequence.png',
+            'opacity': 0.7,
+            'grayscale': True,
+            'current_frame': 1,
+            'crop': [10, 20, 30, 40],
+            'frame_count': 2,
+            'frame_files': ['sequence_frame_0000.png', 'sequence_frame_0001.png'],
+            'frame_metadata': {'fps': 24, 'loop': True},
+            'frame_data': frame_data
+        }
+        
+        # itemsテーブルに挿入
+        io.ex('INSERT INTO items '
+              '(type, x, y, z, scale, rotation, flip, data) '
+              'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ',
+              ('sequence', 50.0, 60.0, 0.5, 1.5, 90, 1, json.dumps(sequence_data)))
+        
+        # sqlarテーブルにフレームデータを挿入
+        for i, frame_info in enumerate(frame_data):
+            # テスト用の画像データを作成
+            pixmap = self.create_test_pixmap()
+            barray = QtCore.QByteArray()
+            buffer = QtCore.QBuffer(barray)
+            buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+            pixmap.save(buffer, 'PNG')
+            frame_bytes = barray.data()
+            
+            io.ex('INSERT INTO sqlar (item_id, name, data) VALUES (?, ?, ?)',
+                  (1, frame_info['sqlar_name'], frame_bytes))
+        
+        io.connection.commit()
+        del io
+
+        # 読み込みテスト
+        io = SQLiteIO(tmpfile, view.scene, readonly=True)
+        io.read()
+        view.scene.add_queued_items()
+        
+        assert len(view.scene.items()) == 1
+        item = view.scene.items()[0]
+        assert isinstance(item, BeeSequenceItem)
+        assert item.isSelected() is False
+        assert item.save_id == 1
+        assert item.pos().x() == 50.0
+        assert item.pos().y() == 60.0
+        assert item.zValue() == 0.5
+        assert item.scale() == 1.5
+        assert item.rotation() == 90
+        assert item.flip() == 1
+        assert item.filename == 'test_sequence.png'
+        assert item.opacity() == 0.7
+        assert item.grayscale is True
+        assert item._current_frame == 1
+        assert item.crop == QtCore.QRectF(10, 20, 30, 40)
+        assert item.get_frame_count() == 2
+        assert item._frame_metadata['fps'] == 24
+        assert view.scene.items_to_add.empty() is True
+
+    def test_sqliteio_read_reads_readonly_sequence_item_error(self, tmpfile, view):
+        """破損データでのBeeSequenceItem読み込みエラーテスト"""
+        from beeref.items import BeeErrorItem
+        
+        io = SQLiteIO(tmpfile, view.scene, create_new=True)
+        io.create_schema_on_new()
+        
+        # 不正なsequenceデータ
+        invalid_data = {
+            'filename': 'broken_sequence.png',
+            'frame_count': 1,
+            'frame_files': ['missing_frame.png']
+        }
+        
+        io.ex('INSERT INTO items '
+              '(type, x, y, z, scale, rotation, flip, data) '
+              'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ',
+              ('sequence', 22.2, 33.3, 0.22, 3.4, 45, -1, json.dumps(invalid_data)))
+        # sqlarデータは意図的に入れない（フレームデータが欠損）
+        io.connection.commit()
+        del io
+
+        io = SQLiteIO(tmpfile, view.scene, readonly=True)
+        io.read()
+        view.scene.add_queued_items()
+        
+        assert len(view.scene.items()) == 1
+        item = view.scene.items()[0]
+        assert isinstance(item, BeeErrorItem)
+        assert 'sequence' in item.toPlainText().lower()
+        assert view.scene.items_to_add.empty() is True
+
+    def test_sqliteio_write_removes_nonexisting_sequence_item(self, tmpfile, view):
+        """削除されたBeeSequenceItemの処理テスト"""
+        from beeref.items import BeeSequenceItem
+        
+        item = BeeSequenceItem()
+        item.filename = 'to_be_removed.png'
+        pixmap = self.create_test_pixmap()
+        item.add_frame(pixmap, 'frame_001.png', 100)
+        
+        view.scene.addItem(item)
+        io = SQLiteIO(tmpfile, view.scene, create_new=True)
+        io.write()
+        
+        # アイテムとフレームデータが保存されている
+        assert io.fetchone('SELECT COUNT(*) from items') == (1,)
+        assert io.fetchone('SELECT COUNT(*) from sqlar') == (1,)
+
+        # シーンからアイテムを削除
+        view.scene.removeItem(item)
+
+        io = SQLiteIO(tmpfile, view.scene, create_new=False)
+        io.write()
+
+        # データベースからも削除されている
+        assert io.fetchone('SELECT COUNT(*) from items') == (0,)
+        assert io.fetchone('SELECT COUNT(*) from sqlar') == (0,)
+
+    def test_sqliteio_sequence_item_frame_data_integrity(self, tmpfile, view):
+        """フレームデータの整合性テスト"""
+        from beeref.items import BeeSequenceItem
+        
+        item = BeeSequenceItem()
+        item.filename = 'integrity_test.png'
+        
+        # 異なるサイズ・色のフレームを追加
+        colors = [QtCore.Qt.GlobalColor.red, QtCore.Qt.GlobalColor.green, QtCore.Qt.GlobalColor.blue]
+        sizes = [(10, 10), (20, 15), (15, 20)]
+        
+        for i, (color, size) in enumerate(zip(colors, sizes)):
+            pixmap = self.create_test_pixmap(size[0], size[1], color)
+            item.add_frame(pixmap, f'frame_{i+1:03d}.png', 100 + i * 10)
+        
+        view.scene.addItem(item)
+        io = SQLiteIO(tmpfile, view.scene, create_new=True)
+        io.write()
+        del io
+
+        # 読み込み後にフレームデータが正しく復元されるかテスト
+        io = SQLiteIO(tmpfile, view.scene, readonly=True)
+        io.read()
+        view.scene.add_queued_items()
+        
+        loaded_item = view.scene.items()[0]
+        assert loaded_item.get_frame_count() == 3
+        
+        # 各フレームが正しく読み込まれるかテスト
+        for i in range(3):
+            pixmap = loaded_item.get_frame_pixmap(i)
+            assert isinstance(pixmap, QtGui.QPixmap)
+            assert not pixmap.isNull()
+            # フレームがキャッシュされている
+            assert i in loaded_item._frame_cache
