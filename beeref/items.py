@@ -1127,21 +1127,15 @@ class BeeAnimatedDataItem(BeeAnimationItemBase):
         """PIL を使って全フレームを初期化時に読み込む"""
         try:
             from PIL import Image
-            import tempfile
+            import io
 
             logger.debug(
                 f'Initializing animation with PIL for {self.filename}'
             )
 
-            # 一時ファイルとして保存してPILで読み込み
-            with tempfile.NamedTemporaryFile(
-                delete=True, suffix='.gif'
-            ) as tmp_file:
-                tmp_file.write(self._animation_data)
-                tmp_file.flush()
-
-                # PILでアニメーションを開く
-                with Image.open(tmp_file.name) as pil_img:
+            # メモリ上で直接PIL処理
+            data_buffer = io.BytesIO(self._animation_data)
+            with Image.open(data_buffer) as pil_img:
                     self._frame_count = getattr(pil_img, 'n_frames', 1)
                     self._delays = []
                     self._pil_frames = []  # PILフレームを保持
@@ -1505,14 +1499,10 @@ class BeeAnimatedDataItem(BeeAnimationItemBase):
         try:
             from PIL import Image
             import io
-            import tempfile
 
-            # 一時ファイルとして保存してPillowで読み込み
-            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                tmp_file.write(self._animation_data)
-                tmp_file.flush()
-
-                with Image.open(tmp_file.name) as pil_img:
+            # メモリ上で直接PIL処理
+            data_buffer = io.BytesIO(self._animation_data)
+            with Image.open(data_buffer) as pil_img:
                     frames = []
                     durations = []
 

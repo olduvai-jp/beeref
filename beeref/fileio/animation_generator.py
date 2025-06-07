@@ -15,7 +15,7 @@
 
 import logging
 import os
-import tempfile
+import io
 from typing import List, Optional, Dict, Any
 
 from PyQt6 import QtGui
@@ -127,10 +127,6 @@ class AnimationGenerator:
             アニメーションデータ辞書
         """
         try:
-            # 一時ファイルを作成
-            with tempfile.NamedTemporaryFile(suffix='.gif', delete=False) as temp_file:
-                temp_path = temp_file.name
-
             # PILで画像を読み込み
             pil_images = []
             for image_path in image_paths:
@@ -155,12 +151,12 @@ class AnimationGenerator:
 
             if len(pil_images) < 2:
                 logger.error("Not enough valid images for animation")
-                os.unlink(temp_path)
                 return None
 
-            # GIFアニメーションを保存
+            # メモリ上でGIFアニメーションを生成
+            buffer = io.BytesIO()
             pil_images[0].save(
-                temp_path,
+                buffer,
                 format='GIF',
                 append_images=pil_images[1:],
                 duration=frame_delay,
@@ -168,12 +164,8 @@ class AnimationGenerator:
                 optimize=True
             )
 
-            # ファイルデータを読み込み
-            with open(temp_path, 'rb') as f:
-                file_data = f.read()
-
-            # 一時ファイルを削除
-            os.unlink(temp_path)
+            # バイトデータを取得
+            file_data = buffer.getvalue()
 
             logger.debug(f"Successfully created GIF animation: {len(file_data)} bytes")
 
