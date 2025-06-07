@@ -34,7 +34,9 @@ import tempfile
 from PyQt6 import QtGui
 
 from beeref import constants
-from beeref.items import BeePixmapItem, BeeAnimatedDataItem, BeeSequenceItem, BeeErrorItem
+from beeref.items import (
+    BeePixmapItem, BeeAnimatedDataItem, BeeSequenceItem, BeeErrorItem
+)
 from .errors import BeeFileIOError, IMG_LOADING_ERROR_MSG
 from .schema import SCHEMA, USER_VERSION, MIGRATIONS, APPLICATION_ID
 
@@ -193,7 +195,7 @@ class SQLiteIO:
         item_rows = self.fetchall(
             'SELECT id, type, x, y, z, scale, rotation, flip, data '
             'FROM items ORDER BY id')
-        
+
         if self.worker:
             self.worker.begin_processing.emit(len(item_rows))
 
@@ -241,8 +243,9 @@ class SQLiteIO:
                     (item_id,))
                 if sqlar_data and sqlar_data[0]:
                     try:
-                        item = BeeAnimatedDataItem(sqlar_data[0], filename=data['data'].get('filename'))
-                        
+                        item = BeeAnimatedDataItem(
+                            sqlar_data[0], filename=data['data'].get('filename'))
+
                         if (not hasattr(item, '_frame_count') or
                                 item._frame_count <= 0):
                             data['data']['text'] = (
@@ -261,7 +264,8 @@ class SQLiteIO:
                         item = BeeErrorItem(**data['data'])
                         data['item'] = item
                 else:
-                    logger.error(f'No sqlar data found for animated_data item {item_id}')
+                    logger.error(
+                        f'No sqlar data found for animated_data item {item_id}')
                     data['data']['text'] = (
                         f'Animation data not found for item {item_id}\n'
                         + IMG_LOADING_ERROR_MSG)
@@ -270,58 +274,66 @@ class SQLiteIO:
                 # 連番画像アイテム - itemsのdataからフレーム情報を取得
                 try:
                     item_data_json = data['data']
-                    
+
                     if 'frame_files' in item_data_json:
                         # フレームファイル名のリスト（順序付き）
                         frame_files = item_data_json['frame_files']
                         item = BeeSequenceItem()
                         frame_data = []
-                        
+
                         for frame_index, frame_filename in enumerate(frame_files):
                             # sqlarからフレームデータを取得
                             sqlar_row = self.fetchone(
                                 'SELECT data FROM sqlar WHERE item_id = ? AND name = ?',
                                 (item_id, frame_filename))
-                            
+
                             if sqlar_row and sqlar_row[0]:
                                 frame_bytes = sqlar_row[0]
-                                
+
                                 frame_info = {
                                     'filename': frame_filename,
                                     'sqlar_name': frame_filename,
-                                    'duration': item_data_json.get('frame_duration', 83),
+                                    'duration': item_data_json.get(
+                                        'frame_duration', 83),
                                     'size': None,  # 後で設定
                                     'format': 'png',
                                     'data': frame_bytes
                                 }
-                                
+
                                 # フレームサイズを取得
                                 temp_pixmap = QtGui.QPixmap()
                                 temp_pixmap.loadFromData(frame_bytes)
                                 if not temp_pixmap.isNull():
-                                    frame_info['size'] = (temp_pixmap.width(), temp_pixmap.height())
-                                
+                                    frame_info['size'] = (
+                                        temp_pixmap.width(), temp_pixmap.height())
+
                                 frame_data.append(frame_info)
-                                logger.debug(f'Loaded frame {frame_index}: {frame_filename}')
+                                logger.debug(
+                                    f'Loaded frame {frame_index}: {frame_filename}')
                             else:
                                 logger.warning(
-                                    f'Frame data not found in sqlar: {frame_filename} for item {item_id}')
-                        
+                                    f'Frame data not found in sqlar: {frame_filename} '
+                                    f'for item {item_id}')
+
                         # フレームデータとメタデータを設定
                         if frame_data:
                             item._frame_data = frame_data
                             item._frame_count = len(frame_data)
-                            
+
                             # 保存されたメタデータがあれば復元
                             if 'frame_metadata' in item_data_json:
-                                item._frame_metadata.update(item_data_json['frame_metadata'])
-                            
+                                item._frame_metadata.update(
+                                    item_data_json['frame_metadata'])
+
                             logger.debug(
-                                f'Restored sequence item {item_id} with {len(frame_data)} frames')
+                                f'Restored sequence item {item_id} with '
+                                f'{len(frame_data)} frames')
                             data['item'] = item
                         else:
                             # フレームデータが見つからない場合はエラーアイテムを作成
-                            logger.error(f'No valid frame data found for sequence item {item_id}')
+                            logger.error(
+                                f'No valid frame data found for sequence item '
+                                f'{item_id}')
                             data['data']['text'] = (
                                 f'Sequence frame data not found for item {item_id}\n'
                                 + IMG_LOADING_ERROR_MSG)
@@ -329,14 +341,15 @@ class SQLiteIO:
                             item = BeeErrorItem(**data['data'])
                             data['item'] = item
                     else:
-                        logger.error(f'No frame_files found in data for sequence item {item_id}')
+                        logger.error(
+                            f'No frame_files found in data for sequence item {item_id}')
                         data['data']['text'] = (
                             f'Sequence frame information not found for item {item_id}\n'
                             + IMG_LOADING_ERROR_MSG)
                         data['type'] = BeeErrorItem.TYPE
                         item = BeeErrorItem(**data['data'])
                         data['item'] = item
-                        
+
                 except Exception as e:
                     logger.error(f'Failed to restore sequence item {item_id}: {e}')
                     data['data']['text'] = (
@@ -433,12 +446,16 @@ class SQLiteIO:
                 for frame_index, frame_info in enumerate(item._frame_data):
                     frame_data = frame_info.get('data')
                     if frame_data:
-                        frame_name = frame_info.get('sqlar_name', f'sequence_frame_{frame_index:04d}.png')
+                        frame_name = frame_info.get(
+                            'sqlar_name', f'sequence_frame_{frame_index:04d}.png')
                         self.ex(
                             'INSERT INTO sqlar (name, item_id, mode, sz, data) '
                             'VALUES (?, ?, ?, ?, ?)',
-                            (frame_name, item.save_id, 0o644, len(frame_data), frame_data))
-                        logger.debug(f'Saved frame {frame_index} as {frame_name} for sequence item {item.save_id}')
+                            (frame_name, item.save_id, 0o644, len(frame_data),
+                             frame_data))
+                        logger.debug(
+                            f'Saved frame {frame_index} as {frame_name} for '
+                            f'sequence item {item.save_id}')
             else:
                 logger.warning(f'No frame data found for sequence item {item.save_id}')
         elif hasattr(item, 'pixmap_to_bytes'):
@@ -456,7 +473,7 @@ class SQLiteIO:
 
         We only update the item data, not the pixmap data, as pixmap
         data never changes and is also time-consuming to save.
-        
+
         Exception: BeeSequenceItem may have frame data changes.
         """
         self.ex(
@@ -467,22 +484,26 @@ class SQLiteIO:
              item.rotation(), item.flip(),
              json.dumps(item.get_extra_save_data()),
              item.save_id))
-        
+
         # BeeSequenceItemの場合はフレームデータも更新
         if item.TYPE == 'sequence':
             # 既存のsqlarレコードを削除
             self.ex('DELETE FROM sqlar WHERE item_id = ?', (item.save_id,))
-            
+
             # 新しいフレームデータを挿入
             if hasattr(item, '_frame_data') and item._frame_data:
                 for frame_index, frame_info in enumerate(item._frame_data):
                     frame_data = frame_info.get('data')
                     if frame_data:
-                        frame_name = frame_info.get('sqlar_name', f'sequence_frame_{frame_index:04d}.png')
+                        frame_name = frame_info.get(
+                            'sqlar_name', f'sequence_frame_{frame_index:04d}.png')
                         self.ex(
                             'INSERT INTO sqlar (name, item_id, mode, sz, data) '
                             'VALUES (?, ?, ?, ?, ?)',
-                            (frame_name, item.save_id, 0o644, len(frame_data), frame_data))
-                        logger.debug(f'Updated frame {frame_index} as {frame_name} for sequence item {item.save_id}')
-        
+                            (frame_name, item.save_id, 0o644, len(frame_data),
+                             frame_data))
+                        logger.debug(
+                            f'Updated frame {frame_index} as {frame_name} for '
+                            f'sequence item {item.save_id}')
+
         self.connection.commit()

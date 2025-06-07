@@ -496,8 +496,6 @@ class TestGrayscaleHandling:
 
         painter = MagicMock()
         painter.combinedTransform.return_value.m11.return_value = 1.0
-        option = MagicMock()
-        widget = MagicMock()
 
 
 class TestDefaultFpsLogic:
@@ -510,14 +508,13 @@ class TestDefaultFpsLogic:
         animated_data_item._delays = [0, -5, 0]  # 無効な遅延値
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # デフォルトFPS設定を20に変更
         animated_data_item.settings.setValue('Items/animation_default_fps', 20)
-        expected_delay = 1000 / 20  # 50ms
-        
+
         # 十分な時間（60ms）でアニメーション更新
         result = animated_data_item.update_animation(60)
-        
+
         assert result is True
         assert animated_data_item._current_frame == 1
         assert animated_data_item.frame_timer == 10  # 60 - 50
@@ -529,14 +526,13 @@ class TestDefaultFpsLogic:
         animated_data_item._delays = [100, 100]  # デフォルト値（無効扱い）
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # デフォルトFPS設定を25に変更
         animated_data_item.settings.setValue('Items/animation_default_fps', 25)
-        expected_delay = 1000 / 25  # 40ms
-        
+
         # 十分な時間（50ms）でアニメーション更新
         result = animated_data_item.update_animation(50)
-        
+
         assert result is True
         assert animated_data_item._current_frame == 1
         assert animated_data_item.frame_timer == 10  # 50 - 40
@@ -548,17 +544,17 @@ class TestDefaultFpsLogic:
         animated_data_item._delays = [200, 150]  # 有効な遅延値
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # デフォルトFPS設定を変更（使用されるべきではない）
         animated_data_item.settings.setValue('Items/animation_default_fps', 60)
-        
+
         # 元画像の遅延（200ms）に基づいてテスト
         # 不十分な時間（150ms）
         result = animated_data_item.update_animation(150)
         assert result is False
         assert animated_data_item._current_frame == 0
         assert animated_data_item.frame_timer == 150
-        
+
         # 十分な時間（60ms追加で合計210ms）
         result = animated_data_item.update_animation(60)
         assert result is True
@@ -572,17 +568,17 @@ class TestDefaultFpsLogic:
         animated_data_item._delays = [150, 0, 200, 100]  # 有効/無効混在
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # デフォルトFPS設定
         animated_data_item.settings.setValue('Items/animation_default_fps', 30)
         default_delay = 1000 / 30  # 約33.33ms
-        
+
         # フレーム0→1: 元遅延150ms使用
         result = animated_data_item.update_animation(160)
         assert result is True
         assert animated_data_item._current_frame == 1
         assert abs(animated_data_item.frame_timer - 10) < 1  # 160 - 150
-        
+
         # フレーム1→2: デフォルトFPS使用（遅延0ms→無効）
         result = animated_data_item.update_animation(40)
         assert result is True
@@ -590,25 +586,26 @@ class TestDefaultFpsLogic:
         # 合計50ms、デフォルト遅延33.33msなので進む
         assert abs(animated_data_item.frame_timer - (50 - default_delay)) < 1
 
-    def test_default_fps_setting_change_affects_animation(self, qapp, animated_data_item):
+    def test_default_fps_setting_change_affects_animation(self, qapp,
+                                                          animated_data_item):
         """デフォルトFPS設定変更時の動作確認テスト"""
         # テスト用の設定
         animated_data_item._frame_count = 2
         animated_data_item._delays = [0, 0]  # 無効な遅延（デフォルトFPS使用）
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # 初期設定: 10 FPS（100ms間隔）
         animated_data_item.settings.setValue('Items/animation_default_fps', 10)
-        
+
         # 90msでは進まない
         result = animated_data_item.update_animation(90)
         assert result is False
         assert animated_data_item._current_frame == 0
-        
+
         # 設定を20 FPSに変更（50ms間隔）
         animated_data_item.settings.setValue('Items/animation_default_fps', 20)
-        
+
         # 既に90ms蓄積されているので、次の更新で進むはず
         # 100ms ÷ 50ms = 2回進行 → フレーム0→1→0（ループ完了）
         result = animated_data_item.update_animation(10)  # 合計100ms
@@ -621,22 +618,22 @@ class TestDefaultFpsLogic:
         animated_data_item._frame_count = 2
         animated_data_item._delays = [0, 0]  # 無効な遅延
         animated_data_item._animation_started = True
-        
+
         # 最小値: 1 FPS（1000ms間隔）
         animated_data_item.settings.setValue('Items/animation_default_fps', 1)
         animated_data_item._current_frame = 0
         animated_data_item.frame_timer = 0
-        
+
         result = animated_data_item.update_animation(1000)
         assert result is True
         assert animated_data_item._current_frame == 1
         assert animated_data_item.frame_timer == 0
-        
+
         # 最大値: 60 FPS（約16.67ms間隔）
         animated_data_item.settings.setValue('Items/animation_default_fps', 60)
         animated_data_item._current_frame = 0
         animated_data_item.frame_timer = 0
-        
+
         expected_delay = 1000 / 60
         result = animated_data_item.update_animation(20)
         assert result is True
@@ -651,13 +648,13 @@ class TestDefaultFpsLogic:
         animated_data_item._delays = [0, 0]  # 無効な遅延
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # デフォルトFPS設定
         animated_data_item.settings.setValue('Items/animation_default_fps', 15)
-        
+
         # アニメーション更新
         animated_data_item.update_animation(100)
-        
+
         # デフォルトFPS使用のログが出力されることを確認
         debug_calls = [call for call in mock_logger.debug.call_args_list]
         default_fps_logged = any(
@@ -673,10 +670,10 @@ class TestDefaultFpsLogic:
             animated_data_item._delays = [250, 300]  # 有効な遅延
             animated_data_item._animation_started = True
             animated_data_item._current_frame = 0
-            
+
             # アニメーション更新
             animated_data_item.update_animation(300)
-            
+
             # 元遅延使用のログが出力されることを確認
             debug_calls = [call for call in mock_logger.debug.call_args_list]
             original_delay_logged = any(
@@ -684,20 +681,21 @@ class TestDefaultFpsLogic:
             )
             assert original_delay_logged, "元遅延使用のログが出力されていません"
 
-    def test_default_fps_with_frame_advance_multiple_times(self, qapp, animated_data_item):
+    def test_default_fps_with_frame_advance_multiple_times(self, qapp,
+                                                           animated_data_item):
         """複数フレーム進行時のデフォルトFPS適用テスト"""
         # テスト用の設定
         animated_data_item._frame_count = 4
         animated_data_item._delays = [0, 0, 0, 0]  # 全て無効な遅延
         animated_data_item._animation_started = True
         animated_data_item._current_frame = 0
-        
+
         # デフォルトFPS設定: 20 FPS（50ms間隔）
         animated_data_item.settings.setValue('Items/animation_default_fps', 20)
-        
+
         # 180msで3フレーム進むはず（50ms × 3 = 150ms、残り30ms）
         result = animated_data_item.update_animation(180)
-        
+
         assert result is True
         assert animated_data_item._current_frame == 3
         assert abs(animated_data_item.frame_timer - 30) < 1  # 180 - 150
@@ -707,12 +705,13 @@ class TestDefaultFpsLogic:
         # 設定インスタンスが存在することを確認
         assert hasattr(animated_data_item, 'settings')
         assert animated_data_item.settings is not None
-        
+
         # デフォルトFPS設定を読み取れることを確認
-        default_fps = animated_data_item.settings.valueOrDefault('Items/animation_default_fps')
+        default_fps = animated_data_item.settings.valueOrDefault(
+            'Items/animation_default_fps')
         assert isinstance(default_fps, int)
         assert 1 <= default_fps <= 60
-        
+
         # 描画テスト用のモックオブジェクトを作成
         painter = MagicMock()
         painter.combinedTransform.return_value.m11.return_value = 1.0

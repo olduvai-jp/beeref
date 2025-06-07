@@ -394,7 +394,7 @@ def test_animation_default_fps_common_values(settings):
     """アニメーションデフォルトFPS設定の一般的な値テスト"""
     # 一般的なFPS値をテスト
     common_fps_values = [1, 5, 8, 10, 12, 15, 24, 25, 30, 50, 60]
-    
+
     for fps in common_fps_values:
         settings.setValue('Items/animation_default_fps', fps)
         assert settings.valueOrDefault('Items/animation_default_fps') == fps

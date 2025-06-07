@@ -203,8 +203,10 @@ class AnimationCacheSizeWidget(IntegerGroup):
 
 class AnimationDefaultFpsWidget(IntegerGroup):
     TITLE = 'Default Animation FPS:'
-    HELPTEXT = ('Default frames per second for animations that lack timing information. '
-                'This setting only applies when the source image has no valid delay data.')
+    HELPTEXT = (
+        'Default frames per second for animations that lack timing '
+        'information. This setting only applies when the source image has '
+        'no valid delay data.')
     KEY = 'Items/animation_default_fps'
     MIN = 1
     MAX = 60

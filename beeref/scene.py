@@ -499,7 +499,6 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
                       self.items())
 
     def items_for_save(self):
-
         """Returns the items that are to be saved.
 
         Items to be saved are items that have a save_id attribute.

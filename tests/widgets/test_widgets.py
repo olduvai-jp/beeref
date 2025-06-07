@@ -19,7 +19,7 @@ def test_debug_log_dialog(qtbot, settings, view):
     # ログファイルのディレクトリを事前に作成
     log_path = logfile_name()
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    
+
     with open(log_path, 'w') as f:
         f.write('my log output')
 

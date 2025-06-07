@@ -115,17 +115,17 @@ def mock_dialogs():
 
     # QMessageBoxをモック
     with patch.object(QtWidgets.QMessageBox, 'question') as question_mock, \
-         patch.object(QtWidgets.QMessageBox, 'warning') as warning_mock, \
-         patch.object(QtWidgets.QMessageBox, 'information') as info_mock, \
-         patch.object(QtWidgets.QMessageBox, 'about') as about_mock, \
-         patch.object(QtWidgets.QFileDialog,
-                      'getOpenFileName') as open_file_mock, \
-         patch.object(QtWidgets.QFileDialog,
-                      'getSaveFileName') as save_file_mock, \
-         patch.object(QtWidgets.QFileDialog,
-                      'getOpenFileNames') as open_files_mock, \
-         patch.object(QtWidgets.QFileDialog,
-                      'getExistingDirectory') as get_dir_mock:
+        patch.object(QtWidgets.QMessageBox, 'warning') as warning_mock, \
+        patch.object(QtWidgets.QMessageBox, 'information') as info_mock, \
+        patch.object(QtWidgets.QMessageBox, 'about') as about_mock, \
+        patch.object(QtWidgets.QFileDialog,
+                     'getOpenFileName') as open_file_mock, \
+        patch.object(QtWidgets.QFileDialog,
+                     'getSaveFileName') as save_file_mock, \
+        patch.object(QtWidgets.QFileDialog,
+                     'getOpenFileNames') as open_files_mock, \
+        patch.object(QtWidgets.QFileDialog,
+                     'getExistingDirectory') as get_dir_mock:
 
         # デフォルトの応答を設定
         question_mock.return_value = QtWidgets.QMessageBox.StandardButton.Yes

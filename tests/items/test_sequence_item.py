@@ -1,8 +1,8 @@
 import pytest
 import os
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import patch
 
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui
 
 from beeref.items import BeeSequenceItem, item_registry
 
@@ -32,8 +32,8 @@ def sequence_item_with_frames(sequence_item):
     # 3つのフレームを追加
     for i in range(3):
         pixmap = create_test_pixmap(color=[
-            QtCore.Qt.GlobalColor.red, 
-            QtCore.Qt.GlobalColor.green, 
+            QtCore.Qt.GlobalColor.red,
+            QtCore.Qt.GlobalColor.green,
             QtCore.Qt.GlobalColor.blue
         ][i])
         sequence_item.add_frame(pixmap, f'frame_{i:03d}.png', 100)
@@ -87,9 +87,9 @@ class TestFrameManagement:
     def test_add_frame_basic(self, qapp, sequence_item):
         """基本的なフレーム追加"""
         pixmap = create_test_pixmap()
-        
+
         sequence_item.add_frame(pixmap, 'test.png', 100)
-        
+
         assert sequence_item.get_frame_count() == 1
         assert len(sequence_item._frame_data) == 1
         assert sequence_item._frame_data[0]['filename'] == 'test.png'
@@ -100,9 +100,9 @@ class TestFrameManagement:
         """duration指定なしでのフレーム追加（FPSから自動計算）"""
         pixmap = create_test_pixmap()
         sequence_item._frame_metadata['fps'] = 24
-        
+
         sequence_item.add_frame(pixmap, 'test.png')
-        
+
         # 1000ms / 24fps = 約41ms
         expected_duration = int(1000 / 24)
         assert sequence_item._frame_data[0]['duration'] == expected_duration
@@ -112,7 +112,7 @@ class TestFrameManagement:
         for i in range(5):
             pixmap = create_test_pixmap()
             sequence_item.add_frame(pixmap, f'frame_{i}.png', 100)
-        
+
         assert sequence_item.get_frame_count() == 5
         assert len(sequence_item._frame_data) == 5
         assert sequence_item._frame_count == 5
@@ -120,20 +120,20 @@ class TestFrameManagement:
     def test_remove_frame_valid_index(self, qapp, sequence_item_with_frames):
         """有効なインデックスでのフレーム削除"""
         initial_count = sequence_item_with_frames.get_frame_count()
-        
+
         sequence_item_with_frames.remove_frame(1)
-        
+
         assert sequence_item_with_frames.get_frame_count() == initial_count - 1
         assert len(sequence_item_with_frames._frame_data) == initial_count - 1
 
     def test_remove_frame_invalid_index(self, qapp, sequence_item_with_frames):
         """無効なインデックスでのフレーム削除"""
         initial_count = sequence_item_with_frames.get_frame_count()
-        
+
         # 範囲外のインデックス
         sequence_item_with_frames.remove_frame(10)
         sequence_item_with_frames.remove_frame(-1)
-        
+
         # フレーム数は変わらない
         assert sequence_item_with_frames.get_frame_count() == initial_count
 
@@ -143,22 +143,23 @@ class TestFrameManagement:
         sequence_item_with_frames.get_frame_pixmap(0)
         sequence_item_with_frames.get_frame_pixmap(1)
         sequence_item_with_frames.get_frame_pixmap(2)
-        
+
         # インデックス1を削除
         sequence_item_with_frames.remove_frame(1)
-        
+
         # キャッシュのインデックスが調整されているか確認
         # 元の2番目のフレームが1番目になる
         assert 0 in sequence_item_with_frames._frame_cache
         assert 1 in sequence_item_with_frames._frame_cache
 
-    def test_remove_frame_current_frame_adjustment(self, qapp, sequence_item_with_frames):
+    def test_remove_frame_current_frame_adjustment(self, qapp,
+                                                   sequence_item_with_frames):
         """フレーム削除時の現在フレーム位置調整"""
         sequence_item_with_frames._current_frame = 2
-        
+
         # インデックス1を削除
         sequence_item_with_frames.remove_frame(1)
-        
+
         # 現在フレームが調整される
         assert sequence_item_with_frames._current_frame == 1
 
@@ -223,10 +224,10 @@ class TestFrameAccess:
     def test_pixmap_returns_current_frame(self, qapp, sequence_item_with_frames):
         """pixmap()メソッドが現在のフレームを返すことを確認"""
         sequence_item_with_frames._current_frame = 1
-        
+
         pixmap = sequence_item_with_frames.pixmap()
         expected_pixmap = sequence_item_with_frames.get_frame_pixmap(1)
-        
+
         assert pixmap is expected_pixmap
 
 
@@ -236,7 +237,7 @@ class TestFpsAndTiming:
     def test_set_fps_basic(self, qapp, sequence_item_with_frames):
         """基本的なFPS設定"""
         sequence_item_with_frames.set_fps(24)
-        
+
         assert sequence_item_with_frames._frame_metadata['fps'] == 24
 
     def test_set_fps_updates_durations(self, qapp, sequence_item):
@@ -245,9 +246,9 @@ class TestFpsAndTiming:
         pixmap = create_test_pixmap()
         sequence_item.add_frame(pixmap, 'frame1.png', 0)  # duration=0
         sequence_item.add_frame(pixmap, 'frame2.png', 100)  # duration設定済み
-        
+
         sequence_item.set_fps(30)
-        
+
         expected_duration = int(1000 / 30)  # 約33ms
         assert sequence_item._frame_data[0]['duration'] == expected_duration
         assert sequence_item._frame_data[1]['duration'] == 100  # 設定済みは変更されない
@@ -255,7 +256,7 @@ class TestFpsAndTiming:
     def test_get_delays(self, qapp, sequence_item_with_frames):
         """フレーム遅延時間取得のテスト"""
         delays = sequence_item_with_frames._get_delays()
-        
+
         assert len(delays) == 3
         assert all(delay == 100 for delay in delays)
 
@@ -264,10 +265,10 @@ class TestFpsAndTiming:
         sequence_item._frame_metadata['fps'] = 24
         pixmap = create_test_pixmap()
         sequence_item.add_frame(pixmap, 'frame.png')  # durationはFPSから計算
-        
+
         delays = sequence_item._get_delays()
         expected_delay = int(1000 / 24)
-        
+
         assert delays[0] == expected_delay
 
 
@@ -277,15 +278,15 @@ class TestSortingAndMetadata:
     def test_get_sorted_frames(self, qapp, sequence_item):
         """フレームソート機能のテスト"""
         pixmap = create_test_pixmap()
-        
+
         # 自然順序ではない順番で追加
         filenames = ['frame_10.png', 'frame_2.png', 'frame_1.png']
         for filename in filenames:
             sequence_item.add_frame(pixmap, filename, 100)
-        
+
         sorted_frames = sequence_item.get_sorted_frames()
         sorted_filenames = [frame['filename'] for frame in sorted_frames]
-        
+
         # 自然順序でソートされているか確認
         assert sorted_filenames == ['frame_1.png', 'frame_2.png', 'frame_10.png']
 
@@ -299,9 +300,9 @@ class TestSortingAndMetadata:
             ],
             'fps': 25
         }
-        
+
         sequence_item.update_from_data(**update_data)
-        
+
         assert sequence_item._frame_metadata['fps'] == 25  # fps引数が優先
         assert sequence_item._frame_metadata['loop'] is False
         assert len(sequence_item._frame_data) == 2
@@ -327,7 +328,7 @@ class TestSerialization:
         assert data['grayscale'] is True
         assert data['current_frame'] == 1
         assert data['crop'] == [1.0, 2.0, 3.0, 4.0]
-        
+
         # シーケンス固有データの確認
         assert 'frame_files' in data
         assert 'frame_metadata' in data
@@ -352,7 +353,7 @@ class TestSerialization:
             {'filename': 'frame1.png', 'duration': 100, 'data': b'data1'},
             {'filename': 'frame2.png', 'duration': 120, 'data': b'data2'}
         ]
-        
+
         data = {
             'filename': 'restored_sequence.png',
             'opacity': 0.7,
@@ -422,22 +423,24 @@ class TestCopy:
 class TestExport:
     """エクスポート機能テスト"""
 
-    def test_get_filename_for_export_with_filename(self, qapp, sequence_item_with_frames):
+    def test_get_filename_for_export_with_filename(self, qapp,
+                                                   sequence_item_with_frames):
         """ファイル名ありでのエクスポートファイル名生成"""
         sequence_item_with_frames.filename = 'test_sequence.png'
         sequence_item_with_frames.save_id = 5
-        
+
         filename = sequence_item_with_frames.get_filename_for_export('png')
-        
+
         assert filename == '0005-test_sequence_sequence.png'
 
-    def test_get_filename_for_export_without_filename(self, qapp, sequence_item_with_frames):
+    def test_get_filename_for_export_without_filename(self, qapp,
+                                                      sequence_item_with_frames):
         """ファイル名なしでのエクスポートファイル名生成"""
         sequence_item_with_frames.filename = None
         sequence_item_with_frames.save_id = 3
-        
+
         filename = sequence_item_with_frames.get_filename_for_export('jpg')
-        
+
         assert filename == '0003_sequence.jpg'
 
     def test_get_imgformat(self, qapp, sequence_item):
@@ -460,16 +463,17 @@ class TestCompatibilityInterface:
         """フレームアクセス機能の確認"""
         # フレーム数の確認
         assert sequence_item_with_frames.get_frame_count() == 3
-        
+
         # インデックスアクセスが可能
         frame_0 = sequence_item_with_frames.get_frame_pixmap(0)
         assert isinstance(frame_0, QtGui.QPixmap)
 
-    def test_current_frame_property_compatibility(self, qapp, sequence_item_with_frames):
+    def test_current_frame_property_compatibility(self, qapp,
+                                                  sequence_item_with_frames):
         """current_frameプロパティの互換性確認（継承元）"""
         # getter
         assert sequence_item_with_frames.current_frame == 0
-        
+
         # setter
         sequence_item_with_frames.current_frame = 1
         assert sequence_item_with_frames.current_frame == 1
@@ -505,7 +509,7 @@ class TestErrorHandling:
         sequence_item._frame_count = 1
 
         pixmap = sequence_item.get_frame_pixmap(0)
-        
+
         # エラー時はデフォルトサイズのPixmapが返される
         assert isinstance(pixmap, QtGui.QPixmap)
 
@@ -519,7 +523,7 @@ class TestErrorHandling:
         sequence_item._frame_count = 1
 
         pixmap = sequence_item.get_frame_pixmap(0)
-        
+
         # エラー時はデフォルトサイズのPixmapが返される
         assert isinstance(pixmap, QtGui.QPixmap)
         assert pixmap.size() == QtCore.QSize(100, 100)
