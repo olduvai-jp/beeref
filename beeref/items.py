@@ -2014,3 +2014,212 @@ class BeeSequenceItem(BeeAnimationItemBase):
         # グレースケール変更時はキャッシュをクリア
         self._frame_cache.clear()
         self.update()
+
+    def export_frame_to_bytes(self, frame_index, target_format=None):
+        """指定されたフレームをバイト列でエクスポート
+        
+        Args:
+            frame_index (int): エクスポートするフレームのインデックス
+            target_format (str, optional): 出力形式 ('png', 'jpg', 'webp', 'bmp')
+                                         Noneの場合は自動判定
+        
+        Returns:
+            tuple: (bytes, format) - バイトデータと形式名
+        
+        Raises:
+            IndexError: フレームインデックスが範囲外の場合
+            ValueError: フレームデータが不正な場合
+        """
+        try:
+            if frame_index < 0 or frame_index >= len(self._frame_data):
+                raise IndexError(
+                    f"Frame index {frame_index} out of range "
+                    f"(available: 0-{len(self._frame_data)-1})")
+            
+            # 指定フレームのPixmapを取得
+            pixmap = self.get_frame_pixmap(frame_index)
+            if pixmap.isNull():
+                raise ValueError(f"Invalid pixmap for frame {frame_index}")
+            
+            # グレースケール・クロップ適用
+            if self.grayscale:
+                img = pixmap.toImage().convertToFormat(
+                    QtGui.QImage.Format.Format_Grayscale8)
+                pixmap = QtGui.QPixmap.fromImage(img)
+            
+            # 形式判定
+            if target_format is None:
+                # フレーム情報から元の形式を取得、なければPNG
+                frame_info = self._frame_data[frame_index]
+                original_filename = frame_info.get('filename', '')
+                target_format = self._detect_format_from_filename(original_filename)
+                if not target_format:
+                    target_format = 'png'
+            
+            # バイト列に変換
+            return self._pixmap_to_bytes(pixmap, target_format)
+            
+        except Exception as e:
+            logger.error(
+                f"Failed to export frame {frame_index} from {self.filename}: {e}")
+            raise
+
+    def get_frame_export_filename(self, frame_index, save_id_default=None):
+        """フレームのエクスポート用ファイル名を生成
+        
+        Args:
+            frame_index (int): フレームインデックス
+            save_id_default (int, optional): デフォルトの保存ID
+        
+        Returns:
+            str: エクスポート用ファイル名
+        
+        Raises:
+            IndexError: フレームインデックスが範囲外の場合
+            AssertionError: save_idが設定されていない場合
+        """
+        if frame_index < 0 or frame_index >= len(self._frame_data):
+            raise IndexError(
+                f"Frame index {frame_index} out of range "
+                f"(available: 0-{len(self._frame_data)-1})")
+        
+        save_id = self.save_id or save_id_default
+        assert save_id is not None, "save_id must be provided"
+        
+        # フレーム情報から元ファイル名を取得
+        frame_info = self._frame_data[frame_index]
+        original_filename = frame_info.get('filename', '')
+        
+        # 元のファイル名をそのまま使用、なければフレーム番号ベースで生成
+        if original_filename:
+            return os.path.basename(original_filename)
+        else:
+            # 形式判定
+            detected_format = self._detect_format_from_filename(original_filename)
+            export_format = detected_format or 'png'
+            return f'frame_{frame_index+1:03d}.{export_format}'
+
+    def get_frame_export_folder_and_filename(self, frame_index, save_id_default=None):
+        """フレームのエクスポート用フォルダ名とファイル名を生成
+        
+        Args:
+            frame_index (int): フレームインデックス
+            save_id_default (int, optional): デフォルトの保存ID
+        
+        Returns:
+            tuple: (フォルダ名, ファイル名)
+        
+        Raises:
+            IndexError: フレームインデックスが範囲外の場合
+            AssertionError: save_idが設定されていない場合
+        """
+        if frame_index < 0 or frame_index >= len(self._frame_data):
+            raise IndexError(
+                f"Frame index {frame_index} out of range "
+                f"(available: 0-{len(self._frame_data)-1})")
+        
+        save_id = self.save_id or save_id_default
+        assert save_id is not None, "save_id must be provided"
+        
+        # フォルダ名生成（単純なSequence形式に統一）
+        folder_name = f'{save_id:04d}-Sequence'
+        
+        # ファイル名生成
+        filename = self.get_frame_export_filename(frame_index, save_id_default)
+        
+        return folder_name, filename
+
+    def _detect_format_from_filename(self, filename):
+        """ファイル名から画像形式を判定
+        
+        Args:
+            filename (str): ファイル名
+        
+        Returns:
+            str or None: 検出された形式名（小文字）、判定できない場合はNone
+        """
+        if not filename:
+            return None
+        
+        # 拡張子を取得
+        _, ext = os.path.splitext(filename.lower())
+        ext = ext.lstrip('.')
+        
+        # サポートされている形式にマッピング
+        format_mapping = {
+            'png': 'png',
+            'jpg': 'jpg',
+            'jpeg': 'jpg',
+            'webp': 'webp',
+            'bmp': 'bmp',
+            'tiff': 'tiff',
+            'tif': 'tiff',
+            'gif': 'png',  # GIFはPNGとして扱う
+        }
+        
+        return format_mapping.get(ext)
+
+    def _pixmap_to_bytes(self, pixmap, target_format):
+        """QPixmapから指定形式でバイト列を生成
+        
+        Args:
+            pixmap (QPixmap): 変換対象のPixmap
+            target_format (str): 出力形式 ('png', 'jpg', 'webp', 'bmp', 'tiff')
+        
+        Returns:
+            tuple: (bytes, format) - バイトデータと形式名
+        
+        Raises:
+            ValueError: サポートされていない形式の場合
+            RuntimeError: 変換に失敗した場合
+        """
+        if pixmap.isNull():
+            raise ValueError("Cannot convert null pixmap to bytes")
+        
+        # 形式の正規化とバリデーション
+        target_format = target_format.lower()
+        supported_formats = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff']
+        
+        if target_format not in supported_formats:
+            raise ValueError(
+                f"Unsupported format '{target_format}'. "
+                f"Supported formats: {supported_formats}")
+        
+        # jpeg形式の正規化
+        if target_format == 'jpeg':
+            target_format = 'jpg'
+        
+        try:
+            # QByteArrayとQBufferを使用してバイト列に変換
+            barray = QtCore.QByteArray()
+            buffer = QtCore.QBuffer(barray)
+            buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+            
+            # Qt形式名に変換（大文字）
+            qt_format = target_format.upper()
+            
+            # 品質設定（JPEGの場合）
+            quality = 90 if target_format == 'jpg' else -1
+            
+            # 保存実行
+            success = pixmap.save(buffer, qt_format, quality)
+            buffer.close()
+            
+            if not success:
+                raise RuntimeError(
+                    f"Failed to save pixmap as {target_format}")
+            
+            data = barray.data()
+            if not data:
+                raise RuntimeError(
+                    f"Empty data returned for {target_format} conversion")
+            
+            logger.debug(
+                f"Converted pixmap to {target_format}: {len(data)} bytes")
+            
+            return (data, target_format)
+            
+        except Exception as e:
+            logger.error(f"Error converting pixmap to {target_format}: {e}")
+            raise RuntimeError(
+                f"Pixmap to {target_format} conversion failed: {e}")

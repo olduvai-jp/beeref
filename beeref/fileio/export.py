@@ -23,7 +23,7 @@ from PyQt6 import QtCore, QtGui
 from .errors import BeeFileIOError
 from beeref import constants, widgets
 from beeref.config import BeeSettings
-from beeref.items import BeePixmapItem, BeeAnimatedDataItem
+from beeref.items import BeePixmapItem, BeeAnimatedDataItem, BeeSequenceItem
 
 
 logger = logging.getLogger(__name__)
@@ -290,6 +290,8 @@ class ImagesToDirectoryExporter(ExporterBase):
         self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
         self.items.extend(
             list(self.scene.items_by_type(BeeAnimatedDataItem.TYPE)))
+        self.items.extend(
+            list(self.scene.items_by_type(BeeSequenceItem.TYPE)))
         self.max_save_id = 0
         for item in self.items:
             if item.save_id:
@@ -317,7 +319,16 @@ class ImagesToDirectoryExporter(ExporterBase):
                 worker.finished.emit(self.dirname, [])
                 return
 
-            if isinstance(item, BeeAnimatedDataItem):
+            if isinstance(item, BeeSequenceItem):
+                if animation_format == 'same_as_source':
+                    # 各フレームを個別エクスポート
+                    self._export_sequence_frames_individually(item, i, worker)
+                    continue
+                else:
+                    # アニメーション形式でエクスポート（将来拡張）
+                    logger.warning(f"Animation export not yet supported for {item}")
+                    continue
+            elif isinstance(item, BeeAnimatedDataItem):
                 # 設定値に基づいてGIF/WebP形式を動的選択
                 if animation_format == 'same_as_source':
                     # Same as Source: BeeAnimatedDataItemの場合は元データを使用
@@ -384,6 +395,113 @@ class ImagesToDirectoryExporter(ExporterBase):
 
         self.emit_finished(worker, self.dirname, [])
 
+    def _export_sequence_frames_individually(self, item, item_index, worker):
+        """SequenceItemの各フレームを個別にエクスポート
+        
+        Args:
+            item (BeeSequenceItem): エクスポート対象のSequenceItem
+            item_index (int): アイテムのインデックス（進捗表示用）
+            worker: ワーカーオブジェクト（キャンセル処理用）
+        """
+        logger.debug(f'Exporting sequence frames individually for {item}')
+        
+        frame_count = item.get_frame_count()
+        if frame_count == 0:
+            logger.warning(f"No frames to export for {item}")
+            return
+        
+        # save_idを決定
+        if item.save_id:
+            base_save_id = item.save_id
+        else:
+            self.max_save_id += 1
+            base_save_id = self.max_save_id
+        
+        # フォルダ名を取得（最初のフレームから）
+        folder_name, _ = item.get_frame_export_folder_and_filename(0, base_save_id)
+        sequence_dir = pathlib.Path(self.dirname) / folder_name
+        
+        # フォルダ作成
+        try:
+            sequence_dir.mkdir(exist_ok=True)
+            logger.debug(f'Created sequence directory: {sequence_dir}')
+        except OSError as e:
+            logger.error(f'Failed to create sequence directory {sequence_dir}: {e}')
+            self.handle_export_error(str(sequence_dir), e, worker)
+            return
+        
+        # 各フレームをエクスポート
+        for frame_idx in range(frame_count):
+            if worker and worker.canceled:
+                logger.debug('Export canceled during sequence frame export')
+                return
+                
+            try:
+                # フレームのPixmapを取得
+                frame_pixmap = item.get_frame_pixmap(frame_idx)
+                if frame_pixmap.isNull():
+                    logger.warning(f"Null pixmap for frame {frame_idx} of {item}")
+                    continue
+                
+                # フレームデータをバイト配列に変換
+                barray = QtCore.QByteArray()
+                buffer = QtCore.QBuffer(barray)
+                buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+                
+                # グレースケール適用
+                if item.grayscale:
+                    img = frame_pixmap.toImage().convertToFormat(
+                        QtGui.QImage.Format.Format_Grayscale8)
+                    frame_pixmap = QtGui.QPixmap.fromImage(img)
+                
+                # クロップ適用
+                if hasattr(item, 'crop') and not item.crop.isEmpty():
+                    frame_pixmap = frame_pixmap.copy(item.crop.toRect())
+                
+                frame_pixmap.save(buffer, 'PNG', quality=90)
+                frame_data = barray.data()
+                
+                # フォルダ名とファイル名を取得
+                _, frame_filename = item.get_frame_export_folder_and_filename(frame_idx, base_save_id)
+                
+                # ファイルパス作成（フォルダ内）
+                frame_path = sequence_dir / frame_filename
+                
+                # ファイル存在チェック
+                if frame_path.exists():
+                    logger.debug(f'Frame file already exists: {frame_path}')
+                    if self.handle_existing is None:
+                        self.start_from = item_index
+                        self.emit_user_input_required(worker, str(frame_path))
+                        return
+                    elif self.handle_existing == 'skip':
+                        logger.debug('Skipping frame file')
+                        continue
+                    elif self.handle_existing == 'skip_all':
+                        logger.debug('Skipping frame file')
+                        continue
+                    elif self.handle_existing in ('overwrite', 'overwrite_all'):
+                        logger.debug('Overwrite frame file')
+                        pass  # ファイルを上書き
+                
+                # ファイル書き込み
+                logger.debug(f'Writing frame file: {frame_path}')
+                frame_path.write_bytes(frame_data)
+                
+                logger.debug(f'Exported frame {frame_idx+1}/{frame_count} of {item}')
+                
+            except Exception as e:
+                error_msg = f'Error exporting frame {frame_idx} of {item}: {e}'
+                logger.error(error_msg)
+                self.handle_export_error(frame_path if 'frame_path' in locals() else self.dirname,
+                                       error_msg, worker)
+                return
+
+    def _get_next_save_id(self):
+        """次の利用可能なsave_idを取得"""
+        self.max_save_id += 1
+        return self.max_save_id
+
 
 class SelectedImagesToDirectoryExporter(ImagesToDirectoryExporter):
     """Export selected images to a folder.
@@ -398,7 +516,7 @@ class SelectedImagesToDirectoryExporter(ImagesToDirectoryExporter):
         selected_items = self.scene.selectedItems(user_only=True)
         self.items = [
             item for item in selected_items
-            if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedDataItem.TYPE)
+            if item.TYPE in (BeePixmapItem.TYPE, BeeAnimatedDataItem.TYPE, BeeSequenceItem.TYPE)
         ]
 
         if not self.items:
