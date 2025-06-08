@@ -1587,8 +1587,7 @@ def test_mouse_release_unhandled(mouse_event_mock, view):
 
 
 def test_drag_enter_when_url(view, imgfilename3x3):
-    url = QtCore.QUrl()
-    url.fromLocalFile(imgfilename3x3)
+    url = QtCore.QUrl.fromLocalFile(imgfilename3x3)
     mimedata = QtCore.QMimeData()
     mimedata.setUrls([url])
     event = MagicMock()

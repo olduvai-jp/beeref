@@ -35,6 +35,7 @@ from beeref.items import BeePixmapItem, BeeAnimatedDataItem
 
 __all__ = [
     'is_bee_file',
+    'is_image_file',
     'load_bee',
     'save_bee',
     'load_images',
@@ -48,6 +49,13 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def is_image_file(path):
+    """画像ファイルかどうか判定する"""
+    from pathlib import Path
+    options = FolderImportOptions()
+    return Path(path).suffix.lower() in options.image_extensions
 
 
 def load_bee(filename, scene, worker=None):
