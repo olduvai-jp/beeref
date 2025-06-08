@@ -21,7 +21,8 @@ from beeref import commands
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.sql import SQLiteIO, is_bee_file
-from beeref.fileio.folder_import import import_folder_images, FolderImportOptions
+from beeref.fileio.folder_import import (
+    import_folder_images, FolderImportOptions)
 from beeref.fileio.sequence_import import (
     create_sequence_item_from_files,
     create_sequence_item_from_group,
@@ -121,7 +122,8 @@ def load_folder_images(folder_path, pos, scene, worker):
 
         # フォルダインポート実行
         options = FolderImportOptions()
-        import_result = import_folder_images(folder_path, (pos.x(), pos.y()), options)
+        import_result = import_folder_images(
+            folder_path, (pos.x(), pos.y()), options)
 
         if not import_result.items and not import_result.errors:
             logger.info(f'No images found in folder {folder_path}')
@@ -145,7 +147,8 @@ def load_folder_images(folder_path, pos, scene, worker):
                         scene.add_item_later(
                             {'item': item, 'type': 'sequence'}, selected=True)
                         items.append(item)
-                        logger.info(f"Added BeeSequenceItem: {item_data['filename']}")
+                        logger.info(
+                            f"Added BeeSequenceItem: {item_data['filename']}")
                     else:
                         logger.warning(
                             f"Invalid sequence item: {item_data['filename']}")
@@ -161,7 +164,8 @@ def load_folder_images(folder_path, pos, scene, worker):
                         )
                         item.set_pos_center(pos)
                         scene.add_item_later(
-                            {'item': item, 'type': 'animated_data'}, selected=True)
+                            {'item': item, 'type': 'animated_data'},
+                            selected=True)
                         items.append(item)
                     else:
                         logger.warning(
@@ -170,7 +174,8 @@ def load_folder_images(folder_path, pos, scene, worker):
 
                 elif item_data['type'] == 'pixmap':
                     # BeePixmapItemを作成
-                    item = BeePixmapItem(item_data['data'], item_data['filename'])
+                    item = BeePixmapItem(
+                        item_data['data'], item_data['filename'])
                     item.set_pos_center(pos)
                     scene.add_item_later(
                         {'item': item, 'type': 'pixmap'}, selected=True)
@@ -196,9 +201,10 @@ def load_folder_images(folder_path, pos, scene, worker):
 
         # 結果をログに出力
         logger.info(
-            f"Folder import completed: {import_result.animations_created} animations, "
-            f"{import_result.static_images} static images, {len(errors)} errors"
-        )
+            f"Folder import completed: "
+            f"{import_result.animations_created} animations, "
+            f"{import_result.static_images} static images, "
+            f"{len(errors)} errors")
 
         worker.finished.emit('', errors)
 

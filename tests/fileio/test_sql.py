@@ -680,7 +680,11 @@ def test_sqliteio_read_raises_error_when_file_empty(view, tmpfile):
 class TestSQLiteIOSequenceItem:
     """BeeSequenceItemのSQL関連テスト"""
 
-    def create_test_pixmap(self, width=10, height=10, color=QtCore.Qt.GlobalColor.red):
+    def create_test_pixmap(
+            self,
+            width=10,
+            height=10,
+            color=QtCore.Qt.GlobalColor.red):
         """テスト用のQPixmapを作成"""
         pixmap = QtGui.QPixmap(width, height)
         pixmap.fill(color)
@@ -742,7 +746,8 @@ class TestSQLiteIOSequenceItem:
 
         # sqlarテーブルの確認（フレームデータ）
         sqlar_results = io.fetchall(
-            'SELECT name, data FROM sqlar WHERE item_id = ? ORDER BY name', (1,))
+            'SELECT name, data FROM sqlar WHERE item_id = ? ORDER BY name',
+            (1,))
         assert len(sqlar_results) == 3
 
         # フレームファイルが正しく保存されている
@@ -751,7 +756,8 @@ class TestSQLiteIOSequenceItem:
             assert isinstance(data, bytes)
             assert len(data) > 0
 
-    def test_sqliteio_write_updates_existing_sequence_item(self, tmpfile, view):
+    def test_sqliteio_write_updates_existing_sequence_item(
+            self, tmpfile, view):
         """既存のBeeSequenceItemの更新テスト"""
         from beeref.items import BeeSequenceItem
 
@@ -779,7 +785,8 @@ class TestSQLiteIOSequenceItem:
         item._current_frame = 0
 
         # 新しいフレームを追加
-        new_pixmap = self.create_test_pixmap(color=QtCore.Qt.GlobalColor.yellow)
+        new_pixmap = self.create_test_pixmap(
+            color=QtCore.Qt.GlobalColor.yellow)
         item.add_frame(new_pixmap, 'frame_002.png', 120)
 
         io.create_new = False
@@ -798,7 +805,8 @@ class TestSQLiteIOSequenceItem:
         assert data['frame_count'] == 2
 
         # sqlarテーブルの確認（フレーム数が増えている）
-        sqlar_count = io.fetchone('SELECT COUNT(*) FROM sqlar WHERE item_id = ?', (1,))
+        sqlar_count = io.fetchone(
+            'SELECT COUNT(*) FROM sqlar WHERE item_id = ?', (1,))
         assert sqlar_count[0] == 2
 
     def test_sqliteio_read_reads_readonly_sequence_item(self, tmpfile, view):
@@ -821,18 +829,33 @@ class TestSQLiteIOSequenceItem:
             'opacity': 0.7,
             'grayscale': True,
             'current_frame': 1,
-            'crop': [10, 20, 30, 40],
+            'crop': [
+                10,
+                20,
+                30,
+                40],
             'frame_count': 2,
-            'frame_files': ['sequence_frame_0000.png', 'sequence_frame_0001.png'],
-            'frame_metadata': {'fps': 24, 'loop': True},
-            'frame_data': frame_data
-        }
+            'frame_files': [
+                'sequence_frame_0000.png',
+                'sequence_frame_0001.png'],
+            'frame_metadata': {
+                'fps': 24,
+                'loop': True},
+            'frame_data': frame_data}
 
         # itemsテーブルに挿入
-        io.ex('INSERT INTO items '
-              '(type, x, y, z, scale, rotation, flip, data) '
-              'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ',
-              ('sequence', 50.0, 60.0, 0.5, 1.5, 90, 1, json.dumps(sequence_data)))
+        io.ex(
+            'INSERT INTO items '
+            '(type, x, y, z, scale, rotation, flip, data) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ',
+            ('sequence',
+             50.0,
+             60.0,
+             0.5,
+             1.5,
+             90,
+             1,
+             json.dumps(sequence_data)))
 
         # sqlarテーブルにフレームデータを挿入
         for i, frame_info in enumerate(frame_data):
@@ -875,7 +898,8 @@ class TestSQLiteIOSequenceItem:
         assert item._frame_metadata['fps'] == 24
         assert view.scene.items_to_add.empty() is True
 
-    def test_sqliteio_read_reads_readonly_sequence_item_error(self, tmpfile, view):
+    def test_sqliteio_read_reads_readonly_sequence_item_error(
+            self, tmpfile, view):
         """破損データでのBeeSequenceItem読み込みエラーテスト"""
         from beeref.items import BeeErrorItem
 
@@ -892,7 +916,8 @@ class TestSQLiteIOSequenceItem:
         io.ex('INSERT INTO items '
               '(type, x, y, z, scale, rotation, flip, data) '
               'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ',
-              ('sequence', 22.2, 33.3, 0.22, 3.4, 45, -1, json.dumps(invalid_data)))
+              ('sequence', 22.2, 33.3, 0.22, 3.4, 45, -1,
+               json.dumps(invalid_data)))
         # sqlarデータは意図的に入れない（フレームデータが欠損）
         io.connection.commit()
         del io
@@ -907,7 +932,8 @@ class TestSQLiteIOSequenceItem:
         assert 'sequence' in item.toPlainText().lower()
         assert view.scene.items_to_add.empty() is True
 
-    def test_sqliteio_write_removes_nonexisting_sequence_item(self, tmpfile, view):
+    def test_sqliteio_write_removes_nonexisting_sequence_item(
+            self, tmpfile, view):
         """削除されたBeeSequenceItemの処理テスト"""
         from beeref.items import BeeSequenceItem
 

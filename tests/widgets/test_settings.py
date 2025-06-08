@@ -285,8 +285,10 @@ def test_settings_dialog_animation_tab_contains_widgets(settings, view):
     animation_format_widget = animation_tab.findChild(AnimationFormatWidget)
     animation_cache_widget = animation_tab.findChild(AnimationCacheSizeWidget)
 
-    assert animation_format_widget is not None, "AnimationFormatWidgetが見つかりません"
-    assert animation_cache_widget is not None, "AnimationCacheSizeWidgetが見つかりません"
+    assert animation_format_widget is not None, \
+        "AnimationFormatWidgetが見つかりません"
+    assert animation_cache_widget is not None, \
+        "AnimationCacheSizeWidgetが見つかりません"
 
 
 def test_animation_default_fps_sets_title_when_not_edited(settings, view):
@@ -402,7 +404,8 @@ def test_settings_dialog_animation_tab_contains_fps_widget(settings, view):
 
     # AnimationDefaultFpsWidgetが含まれることを確認
     animation_fps_widget = animation_tab.findChild(AnimationDefaultFpsWidget)
-    assert animation_fps_widget is not None, "AnimationDefaultFpsWidgetが見つかりません"
+    assert animation_fps_widget is not None, \
+        "AnimationDefaultFpsWidgetが見つかりません"
 
 
 def test_animation_default_fps_widget_value_change_callback(settings, view):

@@ -113,8 +113,9 @@ def create_sequence_item_from_files(
         return None
 
 
-def create_sequence_item_from_group(sequence_group: SequenceGroup,
-                                    fps: float = 12.0) -> Optional[BeeSequenceItem]:
+def create_sequence_item_from_group(
+        sequence_group: SequenceGroup,
+        fps: float = 12.0) -> Optional[BeeSequenceItem]:
     """
     SequenceGroupからBeeSequenceItemを作成
 
@@ -288,7 +289,14 @@ def validate_sequence_files(file_paths: List[str]) -> Tuple[bool, List[str]]:
         errors.append(f"Missing files: {', '.join(missing_files)}")
 
     # 画像形式確認
-    supported_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'}
+    supported_extensions = {
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.gif',
+        '.bmp',
+        '.tiff',
+        '.webp'}
     invalid_files = []
     for file_path in file_paths:
         ext = os.path.splitext(file_path)[1].lower()

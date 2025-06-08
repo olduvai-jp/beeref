@@ -501,7 +501,8 @@ class TestGrayscaleHandling:
 class TestDefaultFpsLogic:
     """デフォルトFPS設定ロジックテスト"""
 
-    def test_default_fps_applied_when_no_valid_delay(self, qapp, animated_data_item):
+    def test_default_fps_applied_when_no_valid_delay(
+            self, qapp, animated_data_item):
         """元画像に有効な遅延情報がない場合のデフォルトFPS適用テスト"""
         # テスト用の設定
         animated_data_item._frame_count = 3
@@ -519,7 +520,8 @@ class TestDefaultFpsLogic:
         assert animated_data_item._current_frame == 1
         assert animated_data_item.frame_timer == 10  # 60 - 50
 
-    def test_default_fps_applied_when_delay_is_100ms(self, qapp, animated_data_item):
+    def test_default_fps_applied_when_delay_is_100ms(
+            self, qapp, animated_data_item):
         """遅延が100ms（デフォルト値）の場合のデフォルトFPS適用テスト"""
         # テスト用の設定
         animated_data_item._frame_count = 2
@@ -537,7 +539,8 @@ class TestDefaultFpsLogic:
         assert animated_data_item._current_frame == 1
         assert animated_data_item.frame_timer == 10  # 50 - 40
 
-    def test_original_delay_priority_over_default_fps(self, qapp, animated_data_item):
+    def test_original_delay_priority_over_default_fps(
+            self, qapp, animated_data_item):
         """元画像の遅延情報がデフォルトFPS設定より優先されることをテスト"""
         # テスト用の設定
         animated_data_item._frame_count = 2
@@ -561,7 +564,8 @@ class TestDefaultFpsLogic:
         assert animated_data_item._current_frame == 1
         assert animated_data_item.frame_timer == 10  # 210 - 200
 
-    def test_mixed_delays_with_default_fps_fallback(self, qapp, animated_data_item):
+    def test_mixed_delays_with_default_fps_fallback(
+            self, qapp, animated_data_item):
         """混在した遅延値でのデフォルトFPS適用テスト"""
         # テスト用の設定
         animated_data_item._frame_count = 4
@@ -677,12 +681,12 @@ class TestDefaultFpsLogic:
             # 元遅延使用のログが出力されることを確認
             debug_calls = [call for call in mock_logger.debug.call_args_list]
             original_delay_logged = any(
-                'Using original delay: 250' in str(call) for call in debug_calls
-            )
+                'Using original delay: 250' in str(call)
+                for call in debug_calls)
             assert original_delay_logged, "元遅延使用のログが出力されていません"
 
-    def test_default_fps_with_frame_advance_multiple_times(self, qapp,
-                                                           animated_data_item):
+    def test_default_fps_with_frame_advance_multiple_times(
+            self, qapp, animated_data_item):
         """複数フレーム進行時のデフォルトFPS適用テスト"""
         # テスト用の設定
         animated_data_item._frame_count = 4

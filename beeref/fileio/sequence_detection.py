@@ -128,7 +128,8 @@ class SequenceDetector:
 
                     # グループが存在しない場合は作成
                     if group_key not in groups:
-                        groups[group_key] = SequenceGroup(prefix, suffix, pattern)
+                        groups[group_key] = SequenceGroup(
+                            prefix, suffix, pattern)
 
                     # ファイルをグループに追加
                     groups[group_key].add_file(number, filepath)
@@ -152,7 +153,8 @@ class SequenceDetector:
 
 def detect_image_sequences(directory_path: str,
                            image_extensions: Optional[List[str]] = None,
-                           min_sequence_length: int = 3) -> List[SequenceGroup]:
+                           min_sequence_length: int = 3) -> List[
+                               SequenceGroup]:
     """
     ディレクトリ内の画像ファイルから連番を検出
 
@@ -172,7 +174,8 @@ def detect_image_sequences(directory_path: str,
         directory = Path(directory_path)
         if not directory.exists() or not directory.is_dir():
             logger.warning(
-                f"Directory does not exist or is not a directory: {directory_path}")
+                f"Directory does not exist or is not a directory: "
+                f"{directory_path}")
             return []
 
         # ディレクトリ内の画像ファイルを取得
@@ -184,16 +187,19 @@ def detect_image_sequences(directory_path: str,
                     image_files.append(str(file_path))
 
         if not image_files:
-            logger.debug(f"No image files found in directory: {directory_path}")
+            logger.debug(
+                f"No image files found in directory: {directory_path}")
             return []
 
-        logger.debug(f"Found {len(image_files)} image files in {directory_path}")
+        logger.debug(
+            f"Found {len(image_files)} image files in {directory_path}")
 
         # 連番検出
         detector = SequenceDetector(min_sequence_length)
         sequences = detector.detect_sequences(image_files)
 
-        logger.info(f"Detected {len(sequences)} image sequences in {directory_path}")
+        logger.info(
+            f"Detected {len(sequences)} image sequences in {directory_path}")
 
         return sequences
 

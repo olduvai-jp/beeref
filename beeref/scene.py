@@ -74,7 +74,8 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         super().addItem(item)
 
         # アニメーションアイテムが追加された場合、タイマーを開始
-        if hasattr(item, 'TYPE') and item.TYPE in ['animated_data', 'sequence']:
+        if hasattr(item, 'TYPE') and item.TYPE in [
+                'animated_data', 'sequence']:
             if not self.animation_timer.isActive():
                 self.animation_timer.start()
                 logger.info(
@@ -86,7 +87,8 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         super().removeItem(item)
 
         # アニメーションアイテムがなくなったらタイマーを停止
-        if hasattr(item, 'TYPE') and item.TYPE in ['animated_data', 'sequence']:
+        if hasattr(item, 'TYPE') and item.TYPE in [
+                'animated_data', 'sequence']:
             has_animated_items = any(
                 hasattr(i, 'TYPE') and i.TYPE in ['animated_data', 'sequence']
                 for i in self.items()
@@ -100,9 +102,9 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
     def update_animations(self):
         """アニメーションアイテムの更新"""
         animated_items = [
-            item for item in self.items()
-            if hasattr(item, 'TYPE') and item.TYPE in ['animated_data', 'sequence']
-        ]
+            item for item in self.items() if hasattr(
+                item, 'TYPE') and item.TYPE in [
+                'animated_data', 'sequence']]
 
         if not animated_items:
             self.animation_timer.stop()
@@ -255,21 +257,21 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         if vertical:
             rects.sort(key=lambda r: r['rect'].topLeft().y())
             sum_height = sum(map(lambda r: r['rect'].height(), rects))
-            y = round(center.y() - sum_height/2)
+            y = round(center.y() - sum_height / 2)
             for rect in rects:
                 positions.append(
                     QtCore.QPointF(
-                        round(center.x() - rect['rect'].width()/2), y))
+                        round(center.x() - rect['rect'].width() / 2), y))
                 y += rect['rect'].height() + gap
 
         else:
             rects.sort(key=lambda r: r['rect'].topLeft().x())
             sum_width = sum(map(lambda r: r['rect'].width(), rects))
-            x = round(center.x() - sum_width/2)
+            x = round(center.x() - sum_width / 2)
             for rect in rects:
                 positions.append(
                     QtCore.QPointF(
-                        x, round(center.y() - rect['rect'].height()/2)))
+                        x, round(center.y() - rect['rect'].height() / 2)))
                 x += rect['rect'].width() + gap
 
         self.undo_stack.push(
@@ -309,7 +311,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         # not (0, 0)
         center = self.get_selection_center()
         bounds = rpack.bbox_size(sizes, positions)
-        diff = center - QtCore.QPointF(bounds[0]/2, bounds[1]/2)
+        diff = center - QtCore.QPointF(bounds[0] / 2, bounds[1] / 2)
         positions = [QtCore.QPointF(*pos) + diff for pos in positions]
 
         self.undo_stack.push(commands.ArrangeItems(self, items, positions))
@@ -333,7 +335,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         # not (0, 0)
         num_rows = math.ceil(math.sqrt(len(items)))
         center = self.get_selection_center()
-        diff = center - num_rows/2 * QtCore.QPointF(max_width, max_height)
+        diff = center - num_rows / 2 * QtCore.QPointF(max_width, max_height)
 
         iter_items = iter(items)
         positions = []
@@ -343,8 +345,8 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
                     item = next(iter_items)
                     rect = self.itemsBoundingRect(items=[item])
                     point = QtCore.QPointF(
-                        i * max_width + (max_width - rect.width())/2,
-                        j * max_height + (max_height - rect.height())/2)
+                        i * max_width + (max_width - rect.width()) / 2,
+                        j * max_height + (max_height - rect.height()) / 2)
                     positions.append(point + diff)
                 except StopIteration:
                     break

@@ -841,7 +841,8 @@ class BeeAnimationItemBase(BeeItemMixin, QtWidgets.QGraphicsObject):
 
     def get_frame_pixmap(self, frame_index):
         """指定されたフレームのQPixmapを取得（抽象メソッド）"""
-        raise NotImplementedError("Subclasses must implement get_frame_pixmap()")
+        raise NotImplementedError(
+            "Subclasses must implement get_frame_pixmap()")
 
     def _get_delays(self):
         """フレーム遅延時間のリストを返す（抽象メソッド）"""
@@ -904,10 +905,12 @@ class BeeAnimationItemBase(BeeItemMixin, QtWidgets.QGraphicsObject):
         # 元画像の遅延情報を優先、無効な場合のみデフォルトFPS設定を適用
         if original_delay <= 0 or original_delay == 100:
             # デフォルトFPS設定から遅延時間を計算
-            default_fps = self.settings.valueOrDefault('Items/animation_default_fps')
+            default_fps = self.settings.valueOrDefault(
+                'Items/animation_default_fps')
             delay_per_frame = 1000 / default_fps
             logger.debug(
-                f'Using default FPS: {default_fps} -> {delay_per_frame}ms delay '
+                f'Using default FPS: {default_fps} -> '
+                f'{delay_per_frame}ms delay '
                 f'(original delay was {original_delay}ms)')
         else:
             delay_per_frame = original_delay
@@ -1136,37 +1139,37 @@ class BeeAnimatedDataItem(BeeAnimationItemBase):
             # メモリ上で直接PIL処理
             data_buffer = io.BytesIO(self._animation_data)
             with Image.open(data_buffer) as pil_img:
-                    self._frame_count = getattr(pil_img, 'n_frames', 1)
-                    self._delays = []
-                    self._pil_frames = []  # PILフレームを保持
+                self._frame_count = getattr(pil_img, 'n_frames', 1)
+                self._delays = []
+                self._pil_frames = []  # PILフレームを保持
 
-                    logger.debug(f'PIL detected {self._frame_count} frames')
+                logger.debug(f'PIL detected {self._frame_count} frames')
 
-                    # 全フレームを読み込み
-                    for frame_idx in range(self._frame_count):
-                        pil_img.seek(frame_idx)
+                # 全フレームを読み込み
+                for frame_idx in range(self._frame_count):
+                    pil_img.seek(frame_idx)
 
-                        # フレームの遅延時間を取得
-                        delay = pil_img.info.get('duration', 100)  # ミリ秒
-                        if delay <= 0:
-                            delay = 100
-                        self._delays.append(delay)
+                    # フレームの遅延時間を取得
+                    delay = pil_img.info.get('duration', 100)  # ミリ秒
+                    if delay <= 0:
+                        delay = 100
+                    self._delays.append(delay)
 
-                        # PILフレームをRGBAに変換してコピー
-                        frame_copy = pil_img.convert('RGBA').copy()
-                        self._pil_frames.append(frame_copy)
+                    # PILフレームをRGBAに変換してコピー
+                    frame_copy = pil_img.convert('RGBA').copy()
+                    self._pil_frames.append(frame_copy)
 
-                        # 最初のフレームはすぐにQPixmapに変換してキャッシュ
-                        if frame_idx == 0:
-                            qimage = self._pil_to_qimage(frame_copy)
-                            if not qimage.isNull():
-                                self._frame_cache[0] = QtGui.QPixmap.fromImage(
-                                    qimage
-                                )
-                                logger.debug(
-                                    f'Cached initial frame: '
-                                    f'size={qimage.size()}'
-                                )
+                    # 最初のフレームはすぐにQPixmapに変換してキャッシュ
+                    if frame_idx == 0:
+                        qimage = self._pil_to_qimage(frame_copy)
+                        if not qimage.isNull():
+                            self._frame_cache[0] = QtGui.QPixmap.fromImage(
+                                qimage
+                            )
+                            logger.debug(
+                                f'Cached initial frame: '
+                                f'size={qimage.size()}'
+                            )
 
             logger.debug(
                 f'Successfully initialized PIL animation: {self._frame_count} '
@@ -1503,35 +1506,35 @@ class BeeAnimatedDataItem(BeeAnimationItemBase):
             # メモリ上で直接PIL処理
             data_buffer = io.BytesIO(self._animation_data)
             with Image.open(data_buffer) as pil_img:
-                    frames = []
-                    durations = []
+                frames = []
+                durations = []
 
-                    for frame_idx in range(getattr(pil_img, 'n_frames', 1)):
-                        pil_img.seek(frame_idx)
-                        frames.append(pil_img.copy())
-                        durations.append(pil_img.info.get('duration', 100))
+                for frame_idx in range(getattr(pil_img, 'n_frames', 1)):
+                    pil_img.seek(frame_idx)
+                    frames.append(pil_img.copy())
+                    durations.append(pil_img.info.get('duration', 100))
 
-                    output = io.BytesIO()
-                    if target_format == 'webp':
-                        frames[0].save(
-                            output,
-                            format='WebP',
-                            save_all=True,
-                            append_images=frames[1:],
-                            duration=durations,
-                            loop=0
-                        )
-                    else:  # gif
-                        frames[0].save(
-                            output,
-                            format='GIF',
-                            save_all=True,
-                            append_images=frames[1:],
-                            duration=durations,
-                            loop=0
-                        )
+                output = io.BytesIO()
+                if target_format == 'webp':
+                    frames[0].save(
+                        output,
+                        format='WebP',
+                        save_all=True,
+                        append_images=frames[1:],
+                        duration=durations,
+                        loop=0
+                    )
+                else:  # gif
+                    frames[0].save(
+                        output,
+                        format='GIF',
+                        save_all=True,
+                        append_images=frames[1:],
+                        duration=durations,
+                        loop=0
+                    )
 
-                    return (output.getvalue(), target_format)
+                return (output.getvalue(), target_format)
 
         except Exception as e:
             logger.error(
@@ -1719,7 +1722,8 @@ class BeeSequenceItem(BeeAnimationItemBase):
 
         except (IndexError, KeyError) as e:
             logger.error(
-                f'Error accessing frame {frame_index} for {self.filename}: {e}')
+                f'Error accessing frame {frame_index} for '
+                f'{self.filename}: {e}')
             return QtGui.QPixmap(100, 100)
         except Exception as e:
             logger.error(
@@ -1780,10 +1784,11 @@ class BeeSequenceItem(BeeAnimationItemBase):
             logger.debug(f'Reset crop for first frame: {self.crop}')
 
         # 複数フレームになったらアニメーションを自動開始
-        if self._frame_count > 1 and self.scene() and not self._animation_started:
+        if (self._frame_count > 1 and self.scene() and
+                not self._animation_started):
             self.start_animation()
             logger.info(f'Auto-started animation for {self.filename} '
-                       f'(frame_count: {self._frame_count})')
+                        f'(frame_count: {self._frame_count})')
 
     def remove_frame(self, index):
         """フレームを削除
@@ -1852,7 +1857,8 @@ class BeeSequenceItem(BeeAnimationItemBase):
             filename = frame_info.get('filename', '')
             # 数字部分を抽出してソート用キーを作成
             parts = re.split('([0-9]+)', filename)
-            return [int(part) if part.isdigit() else part.lower() for part in parts]
+            return [int(part) if part.isdigit() else part.lower()
+                    for part in parts]
 
         sorted_frames = sorted(self._frame_data, key=natural_sort_key)
         return sorted_frames
@@ -2017,15 +2023,15 @@ class BeeSequenceItem(BeeAnimationItemBase):
 
     def export_frame_to_bytes(self, frame_index, target_format=None):
         """指定されたフレームをバイト列でエクスポート
-        
+
         Args:
             frame_index (int): エクスポートするフレームのインデックス
             target_format (str, optional): 出力形式 ('png', 'jpg', 'webp', 'bmp')
                                          Noneの場合は自動判定
-        
+
         Returns:
             tuple: (bytes, format) - バイトデータと形式名
-        
+
         Raises:
             IndexError: フレームインデックスが範囲外の場合
             ValueError: フレームデータが不正な場合
@@ -2035,45 +2041,47 @@ class BeeSequenceItem(BeeAnimationItemBase):
                 raise IndexError(
                     f"Frame index {frame_index} out of range "
                     f"(available: 0-{len(self._frame_data)-1})")
-            
+
             # 指定フレームのPixmapを取得
             pixmap = self.get_frame_pixmap(frame_index)
             if pixmap.isNull():
                 raise ValueError(f"Invalid pixmap for frame {frame_index}")
-            
+
             # グレースケール・クロップ適用
             if self.grayscale:
                 img = pixmap.toImage().convertToFormat(
                     QtGui.QImage.Format.Format_Grayscale8)
                 pixmap = QtGui.QPixmap.fromImage(img)
-            
+
             # 形式判定
             if target_format is None:
                 # フレーム情報から元の形式を取得、なければPNG
                 frame_info = self._frame_data[frame_index]
                 original_filename = frame_info.get('filename', '')
-                target_format = self._detect_format_from_filename(original_filename)
+                target_format = self._detect_format_from_filename(
+                    original_filename)
                 if not target_format:
                     target_format = 'png'
-            
+
             # バイト列に変換
             return self._pixmap_to_bytes(pixmap, target_format)
-            
+
         except Exception as e:
             logger.error(
-                f"Failed to export frame {frame_index} from {self.filename}: {e}")
+                f"Failed to export frame {frame_index} from "
+                f"{self.filename}: {e}")
             raise
 
     def get_frame_export_filename(self, frame_index, save_id_default=None):
         """フレームのエクスポート用ファイル名を生成
-        
+
         Args:
             frame_index (int): フレームインデックス
             save_id_default (int, optional): デフォルトの保存ID
-        
+
         Returns:
             str: エクスポート用ファイル名
-        
+
         Raises:
             IndexError: フレームインデックスが範囲外の場合
             AssertionError: save_idが設定されていない場合
@@ -2082,33 +2090,35 @@ class BeeSequenceItem(BeeAnimationItemBase):
             raise IndexError(
                 f"Frame index {frame_index} out of range "
                 f"(available: 0-{len(self._frame_data)-1})")
-        
+
         save_id = self.save_id or save_id_default
         assert save_id is not None, "save_id must be provided"
-        
+
         # フレーム情報から元ファイル名を取得
         frame_info = self._frame_data[frame_index]
         original_filename = frame_info.get('filename', '')
-        
+
         # 元のファイル名をそのまま使用、なければフレーム番号ベースで生成
         if original_filename:
             return os.path.basename(original_filename)
         else:
             # 形式判定
-            detected_format = self._detect_format_from_filename(original_filename)
+            detected_format = self._detect_format_from_filename(
+                original_filename)
             export_format = detected_format or 'png'
             return f'frame_{frame_index+1:03d}.{export_format}'
 
-    def get_frame_export_folder_and_filename(self, frame_index, save_id_default=None):
+    def get_frame_export_folder_and_filename(
+            self, frame_index, save_id_default=None):
         """フレームのエクスポート用フォルダ名とファイル名を生成
-        
+
         Args:
             frame_index (int): フレームインデックス
             save_id_default (int, optional): デフォルトの保存ID
-        
+
         Returns:
             tuple: (フォルダ名, ファイル名)
-        
+
         Raises:
             IndexError: フレームインデックスが範囲外の場合
             AssertionError: save_idが設定されていない場合
@@ -2117,34 +2127,34 @@ class BeeSequenceItem(BeeAnimationItemBase):
             raise IndexError(
                 f"Frame index {frame_index} out of range "
                 f"(available: 0-{len(self._frame_data)-1})")
-        
+
         save_id = self.save_id or save_id_default
         assert save_id is not None, "save_id must be provided"
-        
+
         # フォルダ名生成（単純なSequence形式に統一）
         folder_name = f'{save_id:04d}-Sequence'
-        
+
         # ファイル名生成
         filename = self.get_frame_export_filename(frame_index, save_id_default)
-        
+
         return folder_name, filename
 
     def _detect_format_from_filename(self, filename):
         """ファイル名から画像形式を判定
-        
+
         Args:
             filename (str): ファイル名
-        
+
         Returns:
             str or None: 検出された形式名（小文字）、判定できない場合はNone
         """
         if not filename:
             return None
-        
+
         # 拡張子を取得
         _, ext = os.path.splitext(filename.lower())
         ext = ext.lstrip('.')
-        
+
         # サポートされている形式にマッピング
         format_mapping = {
             'png': 'png',
@@ -2156,69 +2166,69 @@ class BeeSequenceItem(BeeAnimationItemBase):
             'tif': 'tiff',
             'gif': 'png',  # GIFはPNGとして扱う
         }
-        
+
         return format_mapping.get(ext)
 
     def _pixmap_to_bytes(self, pixmap, target_format):
         """QPixmapから指定形式でバイト列を生成
-        
+
         Args:
             pixmap (QPixmap): 変換対象のPixmap
             target_format (str): 出力形式 ('png', 'jpg', 'webp', 'bmp', 'tiff')
-        
+
         Returns:
             tuple: (bytes, format) - バイトデータと形式名
-        
+
         Raises:
             ValueError: サポートされていない形式の場合
             RuntimeError: 変換に失敗した場合
         """
         if pixmap.isNull():
             raise ValueError("Cannot convert null pixmap to bytes")
-        
+
         # 形式の正規化とバリデーション
         target_format = target_format.lower()
         supported_formats = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff']
-        
+
         if target_format not in supported_formats:
             raise ValueError(
                 f"Unsupported format '{target_format}'. "
                 f"Supported formats: {supported_formats}")
-        
+
         # jpeg形式の正規化
         if target_format == 'jpeg':
             target_format = 'jpg'
-        
+
         try:
             # QByteArrayとQBufferを使用してバイト列に変換
             barray = QtCore.QByteArray()
             buffer = QtCore.QBuffer(barray)
             buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
-            
+
             # Qt形式名に変換（大文字）
             qt_format = target_format.upper()
-            
+
             # 品質設定（JPEGの場合）
             quality = 90 if target_format == 'jpg' else -1
-            
+
             # 保存実行
             success = pixmap.save(buffer, qt_format, quality)
             buffer.close()
-            
+
             if not success:
                 raise RuntimeError(
                     f"Failed to save pixmap as {target_format}")
-            
+
             data = barray.data()
             if not data:
                 raise RuntimeError(
                     f"Empty data returned for {target_format} conversion")
-            
+
             logger.debug(
                 f"Converted pixmap to {target_format}: {len(data)} bytes")
-            
+
             return (data, target_format)
-            
+
         except Exception as e:
             logger.error(f"Error converting pixmap to {target_format}: {e}")
             raise RuntimeError(

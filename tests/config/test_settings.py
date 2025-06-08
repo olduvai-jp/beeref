@@ -398,4 +398,5 @@ def test_animation_default_fps_common_values(settings):
     for fps in common_fps_values:
         settings.setValue('Items/animation_default_fps', fps)
         assert settings.valueOrDefault('Items/animation_default_fps') == fps
-        assert settings.value_changed('Items/animation_default_fps') == (fps != 8)
+        assert settings.value_changed(
+            'Items/animation_default_fps') == (fps != 8)

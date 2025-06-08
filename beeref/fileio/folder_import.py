@@ -19,10 +19,10 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
 from beeref.fileio.image import load_image
-from beeref.fileio.sequence_detection import detect_image_sequences, get_sequence_info
-from beeref.fileio.animation_generator import create_animation_from_sequence
+from beeref.fileio.sequence_detection import (
+    detect_image_sequences, get_sequence_info)
 from beeref.fileio.sequence_import import create_sequence_item_from_group
-from beeref.items import BeePixmapItem, BeeAnimatedDataItem, BeeSequenceItem
+from beeref.items import BeePixmapItem, BeeAnimatedDataItem
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +82,11 @@ class FolderImporter:
         result = FolderImportResult()
 
         try:
-            if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+            if not os.path.exists(
+                    folder_path) or not os.path.isdir(folder_path):
                 logger.error(
-                    f"Folder does not exist or is not a directory: {folder_path}")
+                    f"Folder does not exist or is not a directory: "
+                    f"{folder_path}")
                 result.errors.append(folder_path)
                 return result
 
@@ -93,7 +95,8 @@ class FolderImporter:
             # フォルダ内の画像ファイルを取得
             image_files = self._scan_image_files(folder_path)
             if not image_files:
-                logger.warning(f"No image files found in folder: {folder_path}")
+                logger.warning(
+                    f"No image files found in folder: {folder_path}")
                 return result
 
             logger.debug(f"Found {len(image_files)} image files")
@@ -143,9 +146,10 @@ class FolderImporter:
                         result.errors.append(file_path)
 
             logger.info(
-                f"Folder import completed: {result.animations_created} animations, "
-                f"{result.static_images} static images, {len(result.errors)} errors"
-            )
+                f"Folder import completed: "
+                f"{result.animations_created} animations, "
+                f"{result.static_images} static images, "
+                f"{len(result.errors)} errors")
 
             return result
 
@@ -198,8 +202,9 @@ class FolderImporter:
         """
         return file_path.suffix.lower() in self.options.image_extensions
 
-    def _process_sequence(self, sequence,
-                          pos: Tuple[float, float]) -> Optional[Dict[str, Any]]:
+    def _process_sequence(
+            self, sequence,
+            pos: Tuple[float, float]) -> Optional[Dict[str, Any]]:
         """
         連番シーケンスを処理してアニメーションアイテムデータを作成
 
@@ -254,8 +259,9 @@ class FolderImporter:
             logger.error(f"Error processing sequence: {e}")
             return None
 
-    def _process_static_image(self, file_path: str,
-                              pos: Tuple[float, float]) -> Optional[Dict[str, Any]]:
+    def _process_static_image(
+            self, file_path: str,
+            pos: Tuple[float, float]) -> Optional[Dict[str, Any]]:
         """
         静止画を処理してPixmapアイテムデータを作成
 
@@ -321,7 +327,8 @@ def import_folder_images(
 
 def create_items_from_import_result(
         result: FolderImportResult,
-        scene_pos: Tuple[float, float] = (0, 0)) -> Tuple[List[Any], List[str]]:
+        scene_pos: Tuple[float, float] = (0, 0)) -> Tuple[
+            List[Any], List[str]]:
     """
     インポート結果からBeeRefアイテムを作成
 
@@ -355,7 +362,8 @@ def create_items_from_import_result(
 
                 elif item_data['type'] == 'pixmap':
                     # BeePixmapItemを作成
-                    item = BeePixmapItem(item_data['data'], item_data['filename'])
+                    item = BeePixmapItem(
+                        item_data['data'], item_data['filename'])
                     item.set_pos_center(scene_pos)
                     items.append(item)
 

@@ -103,7 +103,11 @@ class TestCreateSequenceItemFromFiles:
     def test_natural_sorting(self, qapp, temp_dir):
         """自然順序ソートのテスト"""
         # 順不同でファイルを作成
-        filenames = ['frame_10.png', 'frame_2.png', 'frame_1.png', 'frame_20.png']
+        filenames = [
+            'frame_10.png',
+            'frame_2.png',
+            'frame_1.png',
+            'frame_20.png']
         files = []
         for filename in filenames:
             filepath = os.path.join(temp_dir, filename)
@@ -115,7 +119,11 @@ class TestCreateSequenceItemFromFiles:
         assert item is not None
         # フレーム順序が自然順序になっているか確認
         frame_filenames = [frame['filename'] for frame in item._frame_data]
-        expected_order = ['frame_1.png', 'frame_2.png', 'frame_10.png', 'frame_20.png']
+        expected_order = [
+            'frame_1.png',
+            'frame_2.png',
+            'frame_10.png',
+            'frame_20.png']
         assert frame_filenames == expected_order
 
     def test_corrupted_image_handling(self, qapp, temp_dir):
@@ -203,7 +211,8 @@ class TestCreateSequenceItemFromGroup:
         assert item is None
 
     @patch('beeref.fileio.sequence_import.get_sequence_info')
-    def test_sequence_info_integration(self, mock_get_info, qapp, test_sequence_files):
+    def test_sequence_info_integration(
+            self, mock_get_info, qapp, test_sequence_files):
         """get_sequence_info関数との連携テスト"""
         from beeref.fileio.sequence_detection import SequencePattern
 
@@ -235,7 +244,8 @@ class TestImportSequencesFromDirectory:
     """import_sequences_from_directory関数のテスト"""
 
     @patch('beeref.fileio.sequence_import.detect_image_sequences')
-    def test_import_with_sequences_found(self, mock_detect, qapp, test_sequence_files):
+    def test_import_with_sequences_found(
+            self, mock_detect, qapp, test_sequence_files):
         """シーケンスが見つかった場合のインポート"""
         from beeref.fileio.sequence_detection import SequencePattern
 
@@ -264,7 +274,8 @@ class TestImportSequencesFromDirectory:
 
             assert len(items) == 1
             assert items[0] is mock_item
-            mock_detect.assert_called_once_with('/fake/path', min_sequence_length=3)
+            mock_detect.assert_called_once_with(
+                '/fake/path', min_sequence_length=3)
             mock_create.assert_called_once_with(group, 24.0)
 
     @patch('beeref.fileio.sequence_import.detect_image_sequences')
@@ -287,7 +298,8 @@ class TestImportSequencesFromDirectory:
         assert items == []
 
     @patch('beeref.fileio.sequence_import.detect_image_sequences')
-    def test_import_failed_item_creation(self, mock_detect, qapp, test_sequence_files):
+    def test_import_failed_item_creation(
+            self, mock_detect, qapp, test_sequence_files):
         """アイテム作成失敗時の処理"""
         from beeref.fileio.sequence_detection import SequencePattern
 
@@ -436,7 +448,8 @@ class TestValidateSequenceFiles:
         assert valid is False
         assert any('Cannot load images' in error for error in errors)
 
-    def test_validate_mixed_conditions(self, qapp, test_sequence_files, temp_dir):
+    def test_validate_mixed_conditions(
+            self, qapp, test_sequence_files, temp_dir):
         """複数の問題がある場合の検証"""
         missing_file = os.path.join(temp_dir, 'missing.png')
         unsupported_file = os.path.join(temp_dir, 'test.txt')
@@ -476,7 +489,11 @@ class TestGetSequenceImportInfo:
         assert len(info['errors']) > 0
 
     @patch('beeref.fileio.sequence_import.detect_fps_from_filenames')
-    def test_get_info_fps_detection(self, mock_detect_fps, qapp, test_sequence_files):
+    def test_get_info_fps_detection(
+            self,
+            mock_detect_fps,
+            qapp,
+            test_sequence_files):
         """FPS検出機能のテスト"""
         mock_detect_fps.return_value = 30.0
 

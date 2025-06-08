@@ -186,8 +186,8 @@ class SelectableMixin(BaseItemMixin):
         """
         size = self.fixed_length_for_viewport(self.SELECT_FREE_CENTER)
         return QtCore.QRectF(
-            self.center.x() - size/2,
-            self.center.y() - size/2,
+            self.center.x() - size / 2,
+            self.center.y() - size / 2,
             size,
             size)
 
@@ -256,8 +256,8 @@ class SelectableMixin(BaseItemMixin):
         centered around the visible handle."""
         path = QtGui.QPainterPath()
         path.addRect(QtCore.QRectF(
-            corner.x() - self.select_resize_size/2 - margin,
-            corner.y() - self.select_resize_size/2 - margin,
+            corner.x() - self.select_resize_size / 2 - margin,
+            corner.y() - self.select_resize_size / 2 - margin,
             self.select_resize_size + 2 * margin,
             self.select_resize_size + 2 * margin))
         return path
@@ -466,8 +466,8 @@ class SelectableMixin(BaseItemMixin):
     def get_scale_anchor(self, corner):
         """Get the anchor around which the scale for this corner operates."""
         origin = self.bounding_rect_unselected().topLeft()
-        return QtCore.QPointF(self.width - corner.x() + 2*origin.x(),
-                              self.height - corner.y() + 2*origin.y())
+        return QtCore.QPointF(self.width - corner.x() + 2 * origin.x(),
+                              self.height - corner.y() + 2 * origin.y())
 
     def get_corner_direction(self, corner):
         """Get the direction facing away from the center, e.g. the direction

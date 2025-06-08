@@ -909,7 +909,7 @@ class BeeGraphicsView(MainControlsMixin,
                 return
         else:
             if self.get_zoom_size(min) > 50:
-                self.scale(1/factor, 1/factor)
+                self.scale(1 / factor, 1 / factor)
             else:
                 logger.debug('Minimum zoom size reached')
                 return

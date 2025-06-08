@@ -44,7 +44,7 @@ class MouseConfigBase:
     BUTTON_MAP = OrderedDict((
         ('Not Configured', Qt.MouseButton.NoButton),
         ('Left', Qt.MouseButton.LeftButton),
-        ('Middle',  Qt.MouseButton.MiddleButton),
+        ('Middle', Qt.MouseButton.MiddleButton),
     ))
 
     def __eq__(self, other):

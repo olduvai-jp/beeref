@@ -34,7 +34,8 @@ class AnimationGenerator:
     def create_animation_data(self,
                               image_paths: List[str],
                               fps: Optional[int] = None,
-                              output_format: str = 'gif') -> Optional[Dict[str, Any]]:
+                              output_format: str = 'gif') -> Optional[
+                                  Dict[str, Any]]:
         """
         連番画像リストからBeeAnimatedDataItem用のアニメーションデータを生成
 
@@ -64,7 +65,8 @@ class AnimationGenerator:
             frame_delay = int(1000 / fps)
 
             logger.debug(
-                f"Creating animation from {len(image_paths)} images at {fps} FPS")
+                f"Creating animation from {len(image_paths)} images "
+                f"at {fps} FPS")
 
             # アニメーションファイルを生成
             animation_data = self._create_animated_file(
@@ -80,7 +82,8 @@ class AnimationGenerator:
                 })
 
                 logger.info(
-                    f"Successfully created animation from {len(image_paths)} images")
+                    f"Successfully created animation from "
+                    f"{len(image_paths)} images")
                 return animation_data
             else:
                 logger.error("Failed to create animation file")
@@ -142,7 +145,8 @@ class AnimationGenerator:
                     if pil_image:
                         pil_images.append(pil_image)
                     else:
-                        logger.warning(f"Failed to convert image to PIL: {image_path}")
+                        logger.warning(
+                            f"Failed to convert image to PIL: {image_path}")
                         continue
 
                 except Exception as e:
@@ -167,7 +171,8 @@ class AnimationGenerator:
             # バイトデータを取得
             file_data = buffer.getvalue()
 
-            logger.debug(f"Successfully created GIF animation: {len(file_data)} bytes")
+            logger.debug(
+                f"Successfully created GIF animation: {len(file_data)} bytes")
 
             return {
                 'type': 'animated_data',
@@ -177,15 +182,11 @@ class AnimationGenerator:
             }
 
         except ImportError:
-            logger.error("PIL/Pillow not available for GIF animation generation")
+            logger.error(
+                "PIL/Pillow not available for GIF animation generation")
             return None
         except Exception as e:
             logger.error(f"Error creating GIF animation: {e}")
-            if 'temp_path' in locals():
-                try:
-                    os.unlink(temp_path)
-                except OSError:
-                    pass
             return None
 
     def _qimage_to_pil(self, qimage: QtGui.QImage) -> Optional:
@@ -194,7 +195,8 @@ class AnimationGenerator:
             from PIL import Image
 
             # QImageをRGBA32形式に変換
-            qimage = qimage.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
+            qimage = qimage.convertToFormat(
+                QtGui.QImage.Format.Format_RGBA8888)
 
             width = qimage.width()
             height = qimage.height()

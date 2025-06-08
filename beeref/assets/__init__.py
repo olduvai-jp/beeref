@@ -54,4 +54,4 @@ class BeeAssets:
         pixmap = QtGui.QPixmap.fromImage(img)
         pixmap.setDevicePixelRatio(scaling)
         return QtGui.QCursor(
-            pixmap, int(hotspot[0]/scaling), int(hotspot[1]/scaling))
+            pixmap, int(hotspot[0] / scaling), int(hotspot[1] / scaling))

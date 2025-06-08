@@ -167,7 +167,8 @@ class TestFrameManagement:
 class TestFrameAccess:
     """フレームアクセステスト"""
 
-    def test_get_frame_pixmap_valid_index(self, qapp, sequence_item_with_frames):
+    def test_get_frame_pixmap_valid_index(
+            self, qapp, sequence_item_with_frames):
         """有効なフレーム番号でのPixmap取得"""
         pixmap = sequence_item_with_frames.get_frame_pixmap(0)
         assert isinstance(pixmap, QtGui.QPixmap)
@@ -176,7 +177,8 @@ class TestFrameAccess:
         # キャッシュに保存されているか確認
         assert 0 in sequence_item_with_frames._frame_cache
 
-    def test_get_frame_pixmap_invalid_index(self, qapp, sequence_item_with_frames):
+    def test_get_frame_pixmap_invalid_index(
+            self, qapp, sequence_item_with_frames):
         """無効なフレーム番号での処理"""
         # 負の値
         pixmap = sequence_item_with_frames.get_frame_pixmap(-1)
@@ -221,7 +223,8 @@ class TestFrameAccess:
         # 現在のフレーム（5）は保持されている
         assert 5 in sequence_item._frame_cache
 
-    def test_pixmap_returns_current_frame(self, qapp, sequence_item_with_frames):
+    def test_pixmap_returns_current_frame(
+            self, qapp, sequence_item_with_frames):
         """pixmap()メソッドが現在のフレームを返すことを確認"""
         sequence_item_with_frames._current_frame = 1
 
@@ -288,15 +291,18 @@ class TestSortingAndMetadata:
         sorted_filenames = [frame['filename'] for frame in sorted_frames]
 
         # 自然順序でソートされているか確認
-        assert sorted_filenames == ['frame_1.png', 'frame_2.png', 'frame_10.png']
+        assert sorted_filenames == [
+            'frame_1.png', 'frame_2.png', 'frame_10.png']
 
     def test_update_from_data(self, qapp, sequence_item):
         """データ更新機能のテスト"""
         update_data = {
             'frame_metadata': {'fps': 30, 'loop': False},
             'frame_data': [
-                {'filename': 'test1.png', 'duration': 50, 'data': b'test_data1'},
-                {'filename': 'test2.png', 'duration': 60, 'data': b'test_data2'}
+                {'filename': 'test1.png', 'duration': 50,
+                 'data': b'test_data1'},
+                {'filename': 'test2.png', 'duration': 60,
+                 'data': b'test_data2'}
             ],
             'fps': 25
         }
@@ -339,7 +345,8 @@ class TestSerialization:
         """最小限のデータからの復元"""
         data = {'filename': 'new_sequence.png'}
 
-        result = BeeSequenceItem.create_from_data(item=sequence_item, data=data)
+        result = BeeSequenceItem.create_from_data(
+            item=sequence_item, data=data)
 
         assert result is sequence_item
         assert sequence_item.filename == 'new_sequence.png'
@@ -364,7 +371,8 @@ class TestSerialization:
             'frame_metadata': {'fps': 24, 'loop': False}
         }
 
-        result = BeeSequenceItem.create_from_data(item=sequence_item, data=data)
+        result = BeeSequenceItem.create_from_data(
+            item=sequence_item, data=data)
 
         assert result is sequence_item
         assert sequence_item.filename == 'restored_sequence.png'
@@ -416,8 +424,11 @@ class TestCopy:
         assert copy._current_frame == 1
 
         # フレームデータがコピーされていることを確認
-        assert len(copy._frame_data) == len(sequence_item_with_frames._frame_data)
-        assert copy._frame_metadata == sequence_item_with_frames._frame_metadata
+        assert len(
+            copy._frame_data) == len(
+            sequence_item_with_frames._frame_data)
+        assert (copy._frame_metadata ==
+                sequence_item_with_frames._frame_metadata)
 
 
 class TestExport:
@@ -433,8 +444,8 @@ class TestExport:
 
         assert filename == '0005-test_sequence_sequence.png'
 
-    def test_get_filename_for_export_without_filename(self, qapp,
-                                                      sequence_item_with_frames):
+    def test_get_filename_for_export_without_filename(
+            self, qapp, sequence_item_with_frames):
         """ファイル名なしでのエクスポートファイル名生成"""
         sequence_item_with_frames.filename = None
         sequence_item_with_frames.save_id = 3
@@ -452,14 +463,16 @@ class TestExport:
 class TestCompatibilityInterface:
     """既存インターフェースとの互換性テスト"""
 
-    def test_delays_property_compatibility(self, qapp, sequence_item_with_frames):
+    def test_delays_property_compatibility(
+            self, qapp, sequence_item_with_frames):
         """delaysプロパティの互換性確認"""
         delays = sequence_item_with_frames._get_delays()
         assert isinstance(delays, list)
         assert len(delays) == 3
         assert all(delay == 100 for delay in delays)
 
-    def test_frames_property_compatibility(self, qapp, sequence_item_with_frames):
+    def test_frames_property_compatibility(
+            self, qapp, sequence_item_with_frames):
         """フレームアクセス機能の確認"""
         # フレーム数の確認
         assert sequence_item_with_frames.get_frame_count() == 3
