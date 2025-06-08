@@ -14,6 +14,7 @@
 # along with BeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+from pathlib import Path
 
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
@@ -81,7 +82,22 @@ class MainControlsMixin:
         mimedata = event.mimeData()
         logger.debug(f'Drag enter event: {mimedata.formats()}')
         if mimedata.hasUrls():
-            event.acceptProposedAction()
+            # URLからパスを取得して判定
+            urls = mimedata.urls()
+            valid_items = []
+            for url in urls:
+                if url.isLocalFile():
+                    path = Path(url.toLocalFile())
+                    if path.is_dir() or fileio.is_image_file(
+                            str(path)) or fileio.is_bee_file(str(path)):
+                        valid_items.append(path)
+
+            if valid_items:
+                event.acceptProposedAction()
+            else:
+                msg = 'ドロップされたファイル/フォルダは対応していません'
+                logger.info(msg)
+                widgets.BeeNotification(self.control_target, msg)
         elif mimedata.hasImage():
             event.acceptProposedAction()
         else:
@@ -99,14 +115,57 @@ class MainControlsMixin:
                             round(event.position().y()))
         if mimedata.hasUrls():
             logger.debug(f'Found dropped urls: {mimedata.urls()}')
-            if not self.control_target.scene.items():
-                # Check if we have a bee file we can open directly
-                path = mimedata.urls()[0]
-                if (path.isLocalFile()
-                        and fileio.is_bee_file(path.toLocalFile())):
-                    self.control_target.open_from_file(path.toLocalFile())
-                    return
-            self.control_target.do_insert_images(mimedata.urls(), pos)
+
+            # URLからパスを取得してフォルダとファイルを分離
+            folders = []
+            files = []
+
+            for url in mimedata.urls():
+                if url.isLocalFile():
+                    path = Path(url.toLocalFile())
+                    if path.is_dir():
+                        folders.append(path)
+                    elif path.is_file():
+                        files.append(url)
+
+            # フォルダが存在する場合はフォルダを優先処理
+            if folders:
+                # 複数フォルダの場合は最初の1つのみ処理
+                folder_path = folders[0]
+                logger.info(f'フォルダをインポート中: {folder_path}')
+                try:
+                    if hasattr(self.control_target, 'do_import_folder'):
+                        self.control_target.do_import_folder(str(folder_path))
+                    else:
+                        # フォールバック: actionsモジュール経由でフォルダインポートを実行
+                        from beeref.actions import actions
+                        action = actions.ImportFolderAction(
+                            self.control_target)
+                        action.trigger_from_path(str(folder_path))
+
+                    msg = f'フォルダ "{folder_path.name}" をインポートしました'
+                    widgets.BeeNotification(self.control_target, msg)
+                except Exception as e:
+                    msg = f'フォルダのインポートに失敗しました: {str(e)}'
+                    logger.error(msg)
+                    widgets.BeeNotification(self.control_target, msg)
+                return
+
+            # フォルダがない場合はファイル処理
+            if files:
+                if not self.control_target.scene.items():
+                    # Check if we have a bee file we can open directly
+                    path = files[0]
+                    if (path.isLocalFile()
+                            and fileio.is_bee_file(path.toLocalFile())):
+                        self.control_target.open_from_file(path.toLocalFile())
+                        return
+                self.control_target.do_insert_images(files, pos)
+            else:
+                msg = '有効なファイルまたはフォルダが見つかりませんでした'
+                logger.info(msg)
+                widgets.BeeNotification(self.control_target, msg)
+
         elif mimedata.hasImage():
             img = QtGui.QImage(mimedata.imageData())
             item = BeePixmapItem(img)
